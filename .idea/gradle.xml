@@ -21,6 +21,10 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/buildSrc" />
+            <option value="$PROJECT_DIR$/surf-queue-api" />
+            <option value="$PROJECT_DIR$/surf-queue-common" />
+            <option value="$PROJECT_DIR$/surf-queue-paper" />
+            <option value="$PROJECT_DIR$/surf-queue-velocity" />
           </set>
         </option>
       </GradleProjectSettings>

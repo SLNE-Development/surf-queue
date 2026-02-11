@@ -4,3 +4,7 @@ plugins {
 
 
 rootProject.name = "surf-queue"
+include("surf-queue-common")
+include("surf-queue-velocity")
+include("surf-queue-paper")
+include("surf-queue-api")
