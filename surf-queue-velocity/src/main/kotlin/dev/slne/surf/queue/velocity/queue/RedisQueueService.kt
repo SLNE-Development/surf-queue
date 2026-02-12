@@ -1,4 +1,4 @@
-package dev.slne.surf.queue.common.queue
+package dev.slne.surf.queue.velocity.queue
 
 import com.github.benmanes.caffeine.cache.Caffeine
 
@@ -8,4 +8,6 @@ object RedisQueueService {
 
     fun get(serverName: String) = queues.get(serverName)
     fun getAll() = queues.asMap().values
+
+    fun delete(serverName: String) = queues.invalidate(serverName)
 }

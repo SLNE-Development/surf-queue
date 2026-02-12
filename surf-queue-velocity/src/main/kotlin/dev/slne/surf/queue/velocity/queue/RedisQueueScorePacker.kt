@@ -1,0 +1,39 @@
+package dev.slne.surf.queue.velocity.queue
+
+object RedisQueueScorePacker {
+    const val PRIORITY_BITS = 7
+    private const val DELTA_MS_BITS = 42
+    const val SEQUENCE_BITS = 4
+
+    private const val DELTA_MS_SHIFT = SEQUENCE_BITS
+    private const val PRIORITY_SHIFT = DELTA_MS_BITS + SEQUENCE_BITS
+
+    private const val SEQUENCE_MASK = (1L shl SEQUENCE_BITS) - 1   // 0xF
+    private const val DELTA_MS_MASK = (1L shl DELTA_MS_BITS) - 1   // 0x3FFFFFFFFFF
+    private const val PRIORITY_MASK = (1L shl PRIORITY_BITS) - 1   // 0x7F
+
+    fun unpack(score: Double): Unpacked {
+        val value = score.toLong()
+        val priority = PRIORITY_MASK - ((value shr (DELTA_MS_BITS + SEQUENCE_BITS)) and PRIORITY_MASK).toInt()
+        val deltaMs = (value shr SEQUENCE_BITS) and DELTA_MS_MASK
+        val sequence = (value and SEQUENCE_MASK).toInt()
+        return Unpacked(priority.toInt(), deltaMs, sequence)
+    }
+
+    fun pack(priority: Int, deltaMs: Long, sequence: Int): Double {
+        // Priority: invert for desired direction.
+        val invPriority = PRIORITY_MASK - (priority.toLong() and PRIORITY_MASK)
+
+        require(invPriority in 0..PRIORITY_MASK) { "Priority bounds" }
+        require(deltaMs in 0..DELTA_MS_MASK) { "deltaMs out of range" }
+        require(sequence in 0..SEQUENCE_MASK) { "sequence out of range" }
+
+        val value = (invPriority shl (DELTA_MS_BITS + SEQUENCE_BITS)) or
+                ((deltaMs and DELTA_MS_MASK) shl SEQUENCE_BITS) or
+                (sequence.toLong() and SEQUENCE_MASK)
+
+        return value.toDouble()
+    }
+
+    data class Unpacked(val priority: Int, val deltaMs: Long, val sequence: Int)
+}

@@ -1,14 +1,20 @@
 package dev.slne.surf.queue.velocity
 
+import com.github.shynixn.mccoroutine.velocity.SuspendingPluginContainer
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
+import com.velocitypowered.api.plugin.PluginContainer
 import com.velocitypowered.api.proxy.ProxyServer
 import dev.slne.surf.queue.common.SurfQueueInstance
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
-class VelocityMain @Inject constructor(val proxy: ProxyServer) {
+class VelocityMain @Inject constructor(
+    val proxy: ProxyServer,
+    val container: PluginContainer,
+    val suspendingPluginContainer: SuspendingPluginContainer
+) {
     init {
         plugin = this
         runBlocking {
