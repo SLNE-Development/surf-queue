@@ -47,20 +47,6 @@ class RedisQueue(val serverName: String) {
         val GRACE_PERIOD_MS = 1.minutes.inWholeMilliseconds
         const val LOCK_LEASE_SECONDS = 10L
 
-        /**
-         * Encodes priority + addedAt into a single score for RScoredSortedSet.
-         *
-         * priority:  lower = more important (e.g., 0 = VIP, 100 = normal)
-         * addedAt:   unix millis — lower = joined earlier = should go first
-         *
-         * Score formula: priority * 1e12 + addedAt
-         *   - This gives us ~31 years of unique addedAt values per priority level
-         *   - Double has 53 bits of integer precision, 1e12 * maxPriority + millis fits easily
-         */
-        fun computeScore(priority: Int, addedAt: Long): Double {
-            return priority.toDouble() * 1e12 + addedAt.toDouble()
-        }
-
         private fun fixPriority(uuid: UUID, priority: Int): Int {
             return if (priority.bitCount <= RedisQueueScorePacker.PRIORITY_BITS) {
                 priority
