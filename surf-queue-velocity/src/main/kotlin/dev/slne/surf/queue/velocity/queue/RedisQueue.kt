@@ -2,12 +2,12 @@ package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.common.redis.RedisInstance
 import dev.slne.surf.queue.common.redis.redisApi
+import dev.slne.surf.redis.libs.redisson.api.BatchOptions
 import dev.slne.surf.redis.libs.redisson.api.RLock
 import dev.slne.surf.redis.libs.redisson.api.RMap
 import dev.slne.surf.redis.libs.redisson.api.RScoredSortedSet
 import dev.slne.surf.redis.libs.redisson.client.codec.StringCodec
 import dev.slne.surf.surfapi.core.api.util.logger
-import glm_.bitCount
 import kotlinx.coroutines.future.await
 import java.time.Instant
 import java.util.*
@@ -45,24 +45,26 @@ class RedisQueue(val serverName: String) {
         private val log = logger()
 
         val GRACE_PERIOD_MS = 1.minutes.inWholeMilliseconds
-        const val LOCK_LEASE_SECONDS = 10L
+        const val LOCK_LEASE_SECONDS = 30L
 
         private fun fixPriority(uuid: UUID, priority: Int): Int {
-            return if (priority.bitCount <= RedisQueueScorePacker.PRIORITY_BITS) {
+            return if (priority <= RedisQueueScorePacker.MAX_PRIORITY) {
                 priority
             } else {
-                val maxPriority = (1 shl RedisQueueScorePacker.PRIORITY_BITS) - 1
-
                 log.atWarning()
                     .log(
                         "Priority %d for %s exceeds max representable priority, capping to %d",
                         priority,
                         uuid,
-                        maxPriority
+                        RedisQueueScorePacker.MAX_PRIORITY
                     )
 
-                maxPriority
+                RedisQueueScorePacker.MAX_PRIORITY
             }
+        }
+
+        private fun getInMemoryAtomicBatchOptions(): BatchOptions {
+            return BatchOptions.defaults().executionMode(BatchOptions.ExecutionMode.IN_MEMORY_ATOMIC)
         }
     }
 
@@ -80,11 +82,13 @@ class RedisQueue(val serverName: String) {
 
         val meta = QueueEntry(uuid, now, priority)
 
-        val batch = redisApi.redisson.createBatch()
+        val batch = redisApi.redisson.createBatch(getInMemoryAtomicBatchOptions())
+
         batch.getScoredSortedSet<String>(scoredSet.name, scoredSet.codec)
             .addAsync(score, uuidString)
         batch.getMap<String, QueueEntry>(metaMap.name, metaMap.codec)
             .putAsync(uuidString, meta)
+
         batch.executeAsync().await()
 
         log.atInfo()
@@ -94,7 +98,8 @@ class RedisQueue(val serverName: String) {
     suspend fun dequeue(uuid: UUID) {
         val uuidString = uuid.toString()
 
-        val batch = redisApi.redisson.createBatch()
+        val batch = redisApi.redisson.createBatch(getInMemoryAtomicBatchOptions())
+
         batch.getScoredSortedSet<String>(scoredSet.name, scoredSet.codec)
             .removeAsync(uuidString)
         batch.getMap<String, QueueEntry>(metaMap.name, metaMap.codec)
@@ -120,14 +125,14 @@ class RedisQueue(val serverName: String) {
 
     suspend fun processTransfers(
         maxTransfers: Int = 5,
-        canTransfer: suspend (QueueEntry) -> TransferResult
+        tryTransfer: suspend (QueueEntry) -> TransferAction
     ): Int {
         val threadId = Thread.currentThread().threadId()
         val acquired = transferLock.tryLockAsync(0, LOCK_LEASE_SECONDS, TimeUnit.SECONDS, threadId).await()
         if (!acquired) return 0
 
         try {
-            return doProcessTransfers(maxTransfers, canTransfer) { transferLock.isHeldByThreadAsync(threadId).await() }
+            return doProcessTransfers(maxTransfers, tryTransfer) { transferLock.isHeldByThreadAsync(threadId).await() }
         } finally {
             try {
                 transferLock.unlockAsync().await()
@@ -141,7 +146,7 @@ class RedisQueue(val serverName: String) {
 
     private suspend fun doProcessTransfers(
         maxTransfers: Int,
-        canTransfer: suspend (QueueEntry) -> TransferResult,
+        tryTransfer: suspend (QueueEntry) -> TransferAction,
         isLocked: suspend () -> Boolean
     ): Int {
         var transferred = 0
@@ -169,33 +174,54 @@ class RedisQueue(val serverName: String) {
             }
 
             try {
-                when (val result = canTransfer(entry)) {
-                    TransferResult.SUCCESS -> {
+                when (val result = tryTransfer(entry)) {
+                    TransferAction.DONE -> {
                         dequeue(uuid)
                         transferred++
                         log.atInfo()
                             .log("Transferred %s to %s", uuid, serverName)
                     }
 
-                    TransferResult.SERVER_FULL -> {
-                        log.atFine()
+                    TransferAction.PLAYER_NOT_FOUND -> handlePlayerNotFound(uuidString, uuid, entry)
+                    TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER -> handlePlayerNotFound(uuidString, uuid, entry)
+
+                    TransferAction.PLAYER_ALREADY_ON_SERVER -> {
+                        dequeue(uuid)
+                        log.atInfo()
+                            .log("Player %s is already on server %s", uuid, serverName)
+                    }
+
+                    TransferAction.PLUGIN_CANCELLED_TRANSFER -> {
+                        skipEntry(uuidString, entry)
+                        log.atInfo()
+                            .log("Plugin cancelled transfer for %s", uuid)
+                    }
+
+                    TransferAction.PLAYER_KICKED_FROM_SERVER -> {
+                        skipEntry(uuidString, entry)
+                        log.atInfo()
+                            .log("Player %s kicked from server %s", uuid, serverName)
+                    }
+
+                    TransferAction.SERVER_FULL -> {
+                        log.atInfo()
                             .log("Server %s is full, stopping transfers", serverName)
                         break
                     }
 
-                    TransferResult.PLAYER_NOT_FOUND -> {
-                        // Player is not reachable from any proxy right now.
-                        // Apply the 60-second grace period logic.
-                        handlePlayerNotFound(uuidString, uuid, entry)
-                    }
-
-                    TransferResult.PLAYER_TRANSFERRING -> {
-                        // Player is mid-transfer
-                        lastSeenMap.removeAsync(uuidString).await()
+                    TransferAction.PLAYER_ALREADY_CONNECTING -> {
                         skipEntry(uuidString, entry)
+                        log.atInfo()
+                            .log("Player %s is already connecting to server %s", uuid, serverName)
                     }
 
-                    TransferResult.ERROR -> {
+                    TransferAction.SERVER_NOT_FOUND -> {
+                        log.atInfo()
+                            .log("Server %s not found, skipping", serverName)
+                        break
+                    }
+
+                    TransferAction.ERROR -> {
                         log.atWarning()
                             .log("Error transferring %s, skipping", uuid)
                         skipEntry(uuidString, entry)
@@ -248,7 +274,7 @@ class RedisQueue(val serverName: String) {
         }
     }
 
-    private suspend fun skipEntry(uuidString: String, meta: QueueEntry) {
+    private suspend fun skipEntry(uuidString: String, meta: QueueEntry) { // TODO: Max retries
         val scores = scoredSet.entryRangeAsync(0, 1).await()
         if (scores.size < 2) {
             throw AbortException() // No next entry to skip behind, so we can't skip - abort further processing to avoid busy loop
@@ -258,7 +284,7 @@ class RedisQueue(val serverName: String) {
         val nextScore = RedisQueueScorePacker.unpack(nextScoreRaw)
 
         var nextSequence = nextScore.sequence + 1
-        if (nextSequence.bitCount > RedisQueueScorePacker.SEQUENCE_BITS) {
+        if (nextSequence > RedisQueueScorePacker.MAX_SEQUENCE) {
             nextSequence = nextScore.sequence
         }
 
@@ -307,12 +333,17 @@ class RedisQueue(val serverName: String) {
         lastSeenMap.deleteAsync().await()
     }
 
-    enum class TransferResult {
-        SUCCESS,
-        SERVER_FULL,
+    enum class TransferAction {
+        DONE,
         PLAYER_NOT_FOUND,
-        PLAYER_TRANSFERRING,
-        ERROR
+        PLAYER_NOT_CONNECTED_TO_A_SERVER,
+        PLAYER_ALREADY_ON_SERVER,
+        PLUGIN_CANCELLED_TRANSFER,
+        PLAYER_KICKED_FROM_SERVER,
+        SERVER_FULL,
+        PLAYER_ALREADY_CONNECTING,
+        SERVER_NOT_FOUND,
+        ERROR,
     }
 
     private class AbortException : Exception()

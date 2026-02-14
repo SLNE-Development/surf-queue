@@ -1,21 +1,14 @@
 package dev.slne.surf.queue.velocity.transfer
 
-import com.velocitypowered.api.proxy.ConnectionRequestBuilder.Status
-import com.velocitypowered.api.proxy.Player
-import com.velocitypowered.api.proxy.server.RegisteredServer
+import dev.slne.surf.core.api.common.player.SurfPlayer
+import dev.slne.surf.core.api.common.server.SurfServer
+import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
 import dev.slne.surf.core.api.common.surfCoreApi
-import dev.slne.surf.queue.common.redis.redisApi
 import dev.slne.surf.queue.velocity.plugin
-import dev.slne.surf.queue.velocity.queue.QueueEntry
 import dev.slne.surf.queue.velocity.queue.RedisQueue
 import dev.slne.surf.queue.velocity.queue.RedisQueueService
-import dev.slne.surf.queue.velocity.redis.packet.TransferPlayerRequest
-import dev.slne.surf.queue.velocity.redis.packet.TransferPlayerResponse
-import dev.slne.surf.queue.velocity.redis.packet.TransferPlayerResponse.Result.*
-import dev.slne.surf.redis.request.RequestTimeoutException
 import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.*
-import kotlinx.coroutines.future.await
 import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Duration.Companion.seconds
 
@@ -84,7 +77,6 @@ object TransferTask {
         }
     }
 
-
     private suspend fun transfer(queue: RedisQueue) {
         val coreServer = surfCoreApi.getServerByName(queue.serverName)
         if (coreServer == null) {
@@ -94,7 +86,6 @@ object TransferTask {
             return
         }
 
-
         if (coreServer.getPlayerCount() >= coreServer.maxPlayers) return
         val velocityServer = plugin.proxy.getServer(queue.serverName).getOrNull() ?: return
 
@@ -103,20 +94,17 @@ object TransferTask {
             try {
                 val corePlayer = surfCoreApi.getPlayer(entry.uuid)
                 if (corePlayer == null) {
-                    RedisQueue.TransferResult.PLAYER_NOT_FOUND
+                    RedisQueue.TransferAction.PLAYER_NOT_FOUND
                 } else {
-                    val currentServer = corePlayer.currentServer?.name
-                    if (currentServer == null) { // Probably transferring to another proxy
-                        RedisQueue.TransferResult.PLAYER_TRANSFERRING
-                    } else if (currentServer == queue.serverName) {
-                        RedisQueue.TransferResult.SUCCESS
+                    val currentPlayerServer = corePlayer.currentServer
+                    val currentPlayerServerName = currentPlayerServer?.name
+
+                    if (currentPlayerServer == null) { // Probably transferring to another proxy
+                        RedisQueue.TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER
+                    } else if (currentPlayerServerName == queue.serverName) {
+                        RedisQueue.TransferAction.PLAYER_ALREADY_ON_SERVER
                     } else {
-                        val velocityPlayer = plugin.proxy.getPlayer(entry.uuid).getOrNull()
-                        if (velocityPlayer == null) {
-                            tryTransferOnOtherProxy(entry, queue.serverName)
-                        } else {
-                            transferOnThisProxy(velocityPlayer, velocityServer)
-                        }
+                        tryTransferPlayer(corePlayer, coreServer)
                     }
                 }
 
@@ -124,46 +112,31 @@ object TransferTask {
                 log.atWarning()
                     .withCause(e)
                     .log("Error during transfer for queue %s", queue.serverName)
-                RedisQueue.TransferResult.ERROR
+                RedisQueue.TransferAction.ERROR
             }
         }
     }
 
-    private suspend fun transferOnThisProxy(
-        player: Player,
-        target: RegisteredServer
-    ): RedisQueue.TransferResult {
-        val status = player.createConnectionRequest(target)
-            .connect()
-            .await()
-            .status
+    private suspend fun tryTransferPlayer(
+        player: SurfPlayer,
+        targetServer: SurfServer
+    ): RedisQueue.TransferAction {
+        val (status, message) = surfCoreApi.sendPlayerAwaiting(player, targetServer)
 
-        return convertStatus(status)
-    }
-
-    private fun convertStatus(status: Status): RedisQueue.TransferResult {
         return when (status) {
-            Status.SUCCESS, Status.ALREADY_CONNECTED, Status.CONNECTION_IN_PROGRESS -> RedisQueue.TransferResult.SUCCESS
-            Status.CONNECTION_CANCELLED -> RedisQueue.TransferResult.ERROR
-            Status.SERVER_DISCONNECTED -> RedisQueue.TransferResult.SERVER_FULL
-        }
-    }
-
-    private suspend fun tryTransferOnOtherProxy(
-        entry: QueueEntry,
-        targetServerName: String
-    ): RedisQueue.TransferResult {
-        val request = TransferPlayerRequest(entry.uuid, targetServerName)
-
-        return try {
-            val response = redisApi.sendRequest<TransferPlayerResponse>(request, 30.seconds.inWholeMilliseconds)
-            when (val result = response.result) {
-                is Success -> convertStatus(result.status)
-                Error -> RedisQueue.TransferResult.ERROR
-                ServerNotFound -> RedisQueue.TransferResult.ERROR
+            SurfServerConnectResult.Status.SERVER_NOT_FOUND -> RedisQueue.TransferAction.SERVER_NOT_FOUND
+            SurfServerConnectResult.Status.ALREADY_CONNECTED -> RedisQueue.TransferAction.PLAYER_ALREADY_ON_SERVER
+            SurfServerConnectResult.Status.CONNECTION_CANCELLED -> RedisQueue.TransferAction.PLUGIN_CANCELLED_TRANSFER
+            SurfServerConnectResult.Status.CONNECTION_IN_PROGRESS -> RedisQueue.TransferAction.PLAYER_ALREADY_CONNECTING
+            SurfServerConnectResult.Status.SERVER_DISCONNECTED -> {
+                if (targetServer.maxPlayers <= targetServer.getPlayerCount()) {
+                    RedisQueue.TransferAction.SERVER_FULL
+                } else {
+                    RedisQueue.TransferAction.PLAYER_KICKED_FROM_SERVER
+                }
             }
-        } catch (_: RequestTimeoutException) {
-            RedisQueue.TransferResult.ERROR
+
+            SurfServerConnectResult.Status.SUCCESS -> RedisQueue.TransferAction.DONE
         }
     }
 }
