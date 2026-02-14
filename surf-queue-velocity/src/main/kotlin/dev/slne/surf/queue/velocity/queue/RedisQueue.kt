@@ -2,16 +2,19 @@ package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.common.redis.RedisInstance
 import dev.slne.surf.queue.common.redis.redisApi
+import dev.slne.surf.queue.velocity.queue.display.QueueDisplay
 import dev.slne.surf.redis.libs.redisson.api.BatchOptions
 import dev.slne.surf.redis.libs.redisson.api.RLock
 import dev.slne.surf.redis.libs.redisson.api.RMap
 import dev.slne.surf.redis.libs.redisson.api.RScoredSortedSet
 import dev.slne.surf.redis.libs.redisson.client.codec.StringCodec
 import dev.slne.surf.surfapi.core.api.util.logger
+import it.unimi.dsi.fastutil.objects.Object2IntMap
 import kotlinx.coroutines.future.await
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.minutes
 
 class RedisQueue(val serverName: String) {
@@ -35,6 +38,10 @@ class RedisQueue(val serverName: String) {
         redisApi.redisson.getBucket<Long>(RedisInstance.namespaced("queue:$serverName:epoch-ms"))
 
     private val epochMs: Long
+
+    private val tickCount = AtomicLong(0)
+
+    val display = QueueDisplay(this)
 
     init {
         epochMsAtomic.setIfAbsent(Instant.now().toEpochMilli())
@@ -117,6 +124,15 @@ class RedisQueue(val serverName: String) {
     suspend fun getPosition(uuid: UUID): Int? {
         val rank = scoredSet.rankAsync(uuid.toString()).await()
         return rank?.plus(1)
+    }
+
+    suspend fun getAllUuidsWithPosition(): Collection<Object2IntMap.Entry<UUID>> {
+        return scoredSet.entryRangeAsync(0, -1)
+            .await()
+            .mapIndexedNotNull { index, entry ->
+                val uuid = runCatching { UUID.fromString(entry.value) }.getOrNull()
+                uuid?.let { Object2IntMap.entry(it, index + 1) }
+            }
     }
 
     suspend fun size(): Int {
@@ -299,6 +315,29 @@ class RedisQueue(val serverName: String) {
 
     suspend fun markPlayerReconnected(uuid: UUID) {
         lastSeenMap.removeAsync(uuid.toString()).await()
+    }
+
+    fun getTickCount() = tickCount.get()
+
+    suspend fun tickSecond() {
+        val ticks = tickCount.incrementAndGet()
+        if (ticks % 30 == 0L) {
+            try {
+                cleanupExpiredEntries()
+            } catch (e: Exception) {
+                log.atWarning()
+                    .withCause(e)
+                    .log("Failed to cleanup expired entries for queue %s", serverName)
+            }
+        }
+
+        try {
+            display.tick()
+        } catch (e: Exception) {
+            log.atWarning()
+                .withCause(e)
+                .log("Failed to tick display for queue %s", serverName)
+        }
     }
 
     suspend fun cleanupExpiredEntries() {

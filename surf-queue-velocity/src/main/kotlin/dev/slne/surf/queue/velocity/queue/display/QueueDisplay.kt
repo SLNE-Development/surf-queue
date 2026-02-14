@@ -1,0 +1,50 @@
+package dev.slne.surf.queue.velocity.queue.display
+
+import dev.slne.surf.queue.velocity.queue.RedisQueue
+import dev.slne.surf.queue.velocity.util.toVelocityPlayer
+import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
+import it.unimi.dsi.fastutil.objects.Object2IntMap
+import java.util.*
+
+class QueueDisplay(private val queue: RedisQueue) {
+
+    companion object {
+        private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")
+        private val spinnerReversed = spinner.reversedArray()
+    }
+
+    private var cachedUuidsWithPosition: Collection<Object2IntMap.Entry<UUID>>? = null
+
+    suspend fun tick() {
+        if (queue.getTickCount() % 3 == 0L) {
+            cachedUuidsWithPosition = queue.getAllUuidsWithPosition()
+        }
+
+        updateActionBars()
+    }
+
+    private fun updateActionBars() {
+        val uuidsWithPosition = cachedUuidsWithPosition ?: return
+        val spinnerIndex = (queue.getTickCount() % spinner.size).toInt()
+        val spinnerEnd = spinner[spinnerIndex]
+        val spinnerStart = spinnerReversed[spinnerIndex]
+
+        for (entry in uuidsWithPosition) {
+            val uuid = entry.key
+            val position = entry.intValue
+            val player = uuid.toVelocityPlayer() ?: continue
+
+            player.sendActionBar(buildText {
+                spacer(spinnerStart)
+                appendSpace()
+                variableValue(queue.serverName)
+                appendSpace()
+                spacer('|')
+                appendSpace()
+                variableValue("$position/${uuidsWithPosition.size}")
+                appendSpace()
+                spacer(spinnerEnd)
+            })
+        }
+    }
+}

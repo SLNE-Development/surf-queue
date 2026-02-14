@@ -32,20 +32,13 @@ object TransferTask {
                 tick()
             }
         }
-
-        scope.launch {
-            while (isActive) {
-                delay(30.seconds)
-                cleanupTick()
-            }
-        }
     }
 
     fun shutdown() {
         scope.cancel("Shutting down transfer task.")
     }
 
-    private suspend fun tick() {
+    suspend fun tick() {
         coroutineScope {
             for (queue in RedisQueueService.getAll()) {
                 launch {
@@ -56,21 +49,13 @@ object TransferTask {
                             .withCause(e)
                             .log("Error during transfer for queue %s", queue.serverName)
                     }
-                }
-            }
-        }
-    }
 
-    private suspend fun cleanupTick() {
-        coroutineScope {
-            for (queue in RedisQueueService.getAll()) {
-                launch {
                     try {
-                        queue.cleanupExpiredEntries()
+                        queue.tickSecond()
                     } catch (e: Exception) {
                         log.atWarning()
                             .withCause(e)
-                            .log("Error during cleanup for queue %s", queue.serverName)
+                            .log("Error during tickSecond for queue %s", queue.serverName)
                     }
                 }
             }
@@ -87,7 +72,6 @@ object TransferTask {
         }
 
         if (coreServer.getPlayerCount() >= coreServer.maxPlayers) return
-        val velocityServer = plugin.proxy.getServer(queue.serverName).getOrNull() ?: return
 
         val availableSlots = coreServer.maxPlayers - coreServer.getPlayerCount()
         queue.processTransfers(availableSlots) { entry ->
