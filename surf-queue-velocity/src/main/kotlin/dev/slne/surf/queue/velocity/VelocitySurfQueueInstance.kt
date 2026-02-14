@@ -2,8 +2,9 @@ package dev.slne.surf.queue.velocity
 
 import com.google.auto.service.AutoService
 import dev.slne.surf.queue.common.SurfQueueInstance
+import dev.slne.surf.queue.velocity.command.queueCommand
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
-import dev.slne.surf.queue.velocity.transfer.TransferTask
+import dev.slne.surf.queue.velocity.transfer.QueueTickTask
 
 @AutoService(SurfQueueInstance::class)
 class VelocitySurfQueueInstance : SurfQueueInstance() {
@@ -12,12 +13,13 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
         super.enable()
 
         plugin.proxy.eventManager.register(plugin, QueuePlayerListener)
-        TransferTask.startTransferring()
+        QueueTickTask.startTransferring()
+        queueCommand()
     }
 
     override suspend fun disable() {
         super.disable()
 
-        TransferTask.shutdown()
+        QueueTickTask.shutdown()
     }
 }

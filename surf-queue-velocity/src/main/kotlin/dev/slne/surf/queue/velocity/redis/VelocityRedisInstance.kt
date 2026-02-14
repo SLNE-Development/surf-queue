@@ -7,6 +7,5 @@ import dev.slne.surf.queue.common.redis.RedisInstance
 class VelocityRedisInstance : RedisInstance() {
     override fun register() {
         super.register()
-        redisApi.registerRequestHandler(TransferPlayerListener())
     }
 }

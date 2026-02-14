@@ -9,7 +9,7 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.velocity.command.argument.surfBackendServerArgument
 import dev.slne.surf.core.api.velocity.command.argument.surfPlayerArgument
 import dev.slne.surf.queue.velocity.queue.RedisQueueService
-import dev.slne.surf.queue.velocity.transfer.TransferTask
+import dev.slne.surf.queue.velocity.transfer.QueueTickTask
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 import dev.slne.surf.surfapi.velocity.api.command.executors.anyExecutorSuspend
 
@@ -38,7 +38,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
 
     literalArgument("tickQueues") {
         anyExecutorSuspend { sender, args ->
-            TransferTask.tick()
+            QueueTickTask.tick()
             sender.sendText {
                 appendSuccessPrefix()
                 success("Ticked queues")
@@ -49,7 +49,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
     literalArgument("transferTask") {
         literalArgument("start") {
             anyExecutor { source, arguments ->
-                TransferTask.startTransferring()
+                QueueTickTask.startTransferring()
                 source.sendText {
                     appendSuccessPrefix()
                     success("Started transfer task")
@@ -59,7 +59,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
 
         literalArgument("stop") {
             anyExecutor { source, arguments ->
-                TransferTask.shutdown()
+                QueueTickTask.shutdown()
                 source.sendText {
                     appendSuccessPrefix()
                     success("Stopped transfer task")

@@ -1,68 +1,22 @@
-package dev.slne.surf.queue.velocity.transfer
+package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.core.api.common.player.SurfPlayer
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
 import dev.slne.surf.core.api.common.surfCoreApi
-import dev.slne.surf.queue.velocity.plugin
-import dev.slne.surf.queue.velocity.queue.RedisQueue
-import dev.slne.surf.queue.velocity.queue.RedisQueueService
 import dev.slne.surf.surfapi.core.api.util.logger
-import kotlinx.coroutines.*
-import kotlin.jvm.optionals.getOrNull
-import kotlin.time.Duration.Companion.seconds
 
-object TransferTask {
+class QueueTransfer(private val queue: RedisQueue) {
 
-    private val log = logger()
-    private val scope = CoroutineScope(
-        Dispatchers.Default +
-                CoroutineName("surf-queue-transfer") +
-                SupervisorJob() +
-                CoroutineExceptionHandler { context, throwable ->
-                    log.atSevere()
-                        .withCause(throwable)
-                        .log("An exception occurred in the transfer task.")
-                })
-
-    fun startTransferring() {
-        scope.launch {
-            while (isActive) {
-                delay(1.seconds)
-                tick()
-            }
-        }
-    }
-
-    fun shutdown() {
-        scope.cancel("Shutting down transfer task.")
+    companion object {
+        private val log = logger()
     }
 
     suspend fun tick() {
-        coroutineScope {
-            for (queue in RedisQueueService.getAll()) {
-                launch {
-                    try {
-                        transfer(queue)
-                    } catch (e: Exception) {
-                        log.atWarning()
-                            .withCause(e)
-                            .log("Error during transfer for queue %s", queue.serverName)
-                    }
-
-                    try {
-                        queue.tickSecond()
-                    } catch (e: Exception) {
-                        log.atWarning()
-                            .withCause(e)
-                            .log("Error during tickSecond for queue %s", queue.serverName)
-                    }
-                }
-            }
-        }
+        transfer()
     }
 
-    private suspend fun transfer(queue: RedisQueue) {
+    private suspend fun transfer() {
         val coreServer = surfCoreApi.getServerByName(queue.serverName)
         if (coreServer == null) {
             // Server probably shutdown, delete the queue.
@@ -72,8 +26,8 @@ object TransferTask {
         }
 
         if (coreServer.getPlayerCount() >= coreServer.maxPlayers) return
-
         val availableSlots = coreServer.maxPlayers - coreServer.getPlayerCount()
+
         queue.processTransfers(availableSlots) { entry ->
             try {
                 val corePlayer = surfCoreApi.getPlayer(entry.uuid)
@@ -121,6 +75,7 @@ object TransferTask {
             }
 
             SurfServerConnectResult.Status.SUCCESS -> RedisQueue.TransferAction.DONE
+            SurfServerConnectResult.Status.UNKNOWN_ERROR -> RedisQueue.TransferAction.ERROR
         }
     }
 }

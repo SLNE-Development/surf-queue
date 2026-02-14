@@ -9,7 +9,7 @@ abstract class RedisInstance {
 
     fun connect() {
         register()
-        redisApi.connect()
+        redisApi.freezeAndConnect()
     }
 
     @MustBeInvokedByOverriders

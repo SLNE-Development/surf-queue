@@ -7,7 +7,9 @@ import dev.slne.surf.redis.libs.redisson.api.BatchOptions
 import dev.slne.surf.redis.libs.redisson.api.RLock
 import dev.slne.surf.redis.libs.redisson.api.RMap
 import dev.slne.surf.redis.libs.redisson.api.RScoredSortedSet
+import dev.slne.surf.redis.libs.redisson.client.codec.LongCodec
 import dev.slne.surf.redis.libs.redisson.client.codec.StringCodec
+import dev.slne.surf.redis.libs.redisson.codec.CompositeCodec
 import dev.slne.surf.surfapi.core.api.util.logger
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import kotlinx.coroutines.future.await
@@ -19,29 +21,31 @@ import kotlin.time.Duration.Companion.minutes
 
 class RedisQueue(val serverName: String) {
     private val scoredSet: RScoredSortedSet<String> = redisApi.redisson.getScoredSortedSet(
-        RedisInstance.namespaced("queue:$serverName:entries"),
+        "$REDIS_QUEUE_PREFIX$serverName:entries",
         StringCodec.INSTANCE
     )
 
     private val metaMap: RMap<String, QueueEntry> = redisApi.redisson.getMap(
-        RedisInstance.namespaced("queue:$serverName:meta"),
+        "$REDIS_QUEUE_PREFIX$serverName:meta"
     )
 
     private val lastSeenMap: RMap<String, Long> = redisApi.redisson.getMap(
-        RedisInstance.namespaced("queue:$serverName:lastseen"),
+        "$REDIS_QUEUE_PREFIX$serverName:lastseen",
+        CompositeCodec(StringCodec.INSTANCE, LongCodec.INSTANCE)
     )
 
     private val transferLock: RLock =
-        redisApi.redisson.getLock(RedisInstance.namespaced("queue:$serverName:transfer-lock"))
+        redisApi.redisson.getLock("$REDIS_QUEUE_PREFIX$serverName:transfer-lock")
 
     private val epochMsAtomic =
-        redisApi.redisson.getBucket<Long>(RedisInstance.namespaced("queue:$serverName:epoch-ms"))
+        redisApi.redisson.getBucket<Long>("$REDIS_QUEUE_PREFIX$serverName:epoch-ms", LongCodec.INSTANCE)
 
     private val epochMs: Long
 
     private val tickCount = AtomicLong(0)
 
     val display = QueueDisplay(this)
+    private val transfer = QueueTransfer(this)
 
     init {
         epochMsAtomic.setIfAbsent(Instant.now().toEpochMilli())
@@ -53,6 +57,8 @@ class RedisQueue(val serverName: String) {
 
         val GRACE_PERIOD_MS = 1.minutes.inWholeMilliseconds
         const val LOCK_LEASE_SECONDS = 30L
+
+        val REDIS_QUEUE_PREFIX = RedisInstance.namespaced("queue:")
 
         private fun fixPriority(uuid: UUID, priority: Int): Int {
             return if (priority <= RedisQueueScorePacker.MAX_PRIORITY) {
@@ -332,7 +338,17 @@ class RedisQueue(val serverName: String) {
         }
 
         try {
+            transfer.tick()
+            println("Ticking transfers for queue $serverName:")
+        } catch (e: Exception) {
+            log.atWarning()
+                .withCause(e)
+                .log("Failed to tick transfers for queue %s", serverName)
+        }
+
+        try {
             display.tick()
+            println("Ticking display for queue $serverName:")
         } catch (e: Exception) {
             log.atWarning()
                 .withCause(e)

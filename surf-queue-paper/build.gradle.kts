@@ -1,3 +1,3 @@
-plugins {
-    id("dev.slne.surf.surfapi.gradle.paper-plugin")
-}
+//plugins {
+//    id("dev.slne.surf.surfapi.gradle.paper-plugin")
+//}
