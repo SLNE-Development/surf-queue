@@ -14,4 +14,10 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
         plugin.proxy.eventManager.register(plugin, QueuePlayerListener)
         TransferTask.startTransferring()
     }
+
+    override suspend fun disable() {
+        super.disable()
+
+        TransferTask.shutdown()
+    }
 }

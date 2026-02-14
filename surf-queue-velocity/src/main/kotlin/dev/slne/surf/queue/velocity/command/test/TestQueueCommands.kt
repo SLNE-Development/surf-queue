@@ -1,6 +1,7 @@
 package dev.slne.surf.queue.velocity.command.test
 
 import dev.jorel.commandapi.CommandTree
+import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.slne.surf.core.api.common.player.SurfPlayer
@@ -41,6 +42,28 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
             sender.sendText {
                 appendSuccessPrefix()
                 success("Ticked queues")
+            }
+        }
+    }
+
+    literalArgument("transferTask") {
+        literalArgument("start") {
+            anyExecutor { source, arguments ->
+                TransferTask.startTransferring()
+                source.sendText {
+                    appendSuccessPrefix()
+                    success("Started transfer task")
+                }
+            }
+        }
+
+        literalArgument("stop") {
+            anyExecutor { source, arguments ->
+                TransferTask.shutdown()
+                source.sendText {
+                    appendSuccessPrefix()
+                    success("Stopped transfer task")
+                }
             }
         }
     }
