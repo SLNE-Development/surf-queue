@@ -67,4 +67,8 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
             }
         }
     }
+
+    literalArgument("test-display") {
+
+    }
 }

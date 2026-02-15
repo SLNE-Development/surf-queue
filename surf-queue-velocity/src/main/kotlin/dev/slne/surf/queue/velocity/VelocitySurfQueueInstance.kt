@@ -31,10 +31,10 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
     }
 
     override suspend fun disable() {
-        super.disable()
-
         QueueMetricsLogger.stop()
         QueueTickTask.shutdown()
+
+        super.disable()
     }
 
     override fun createQueue(serverName: String): AbstractSurfQueue {

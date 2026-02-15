@@ -9,7 +9,7 @@ import java.util.*
 class QueueDisplay(private val queue: VelocitySurfQueue) {
 
     companion object {
-        private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")
+        private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")
         private val spinnerReversed = spinner.reversedArray()
         private const val PAUSE_CHAR = '⏸'
     }

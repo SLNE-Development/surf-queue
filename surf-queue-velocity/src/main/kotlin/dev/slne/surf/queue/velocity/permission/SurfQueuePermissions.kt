@@ -7,4 +7,5 @@ object SurfQueuePermissions {
     const val COMMAND_QUEUE = COMMAND_PREFIX + "queue"
 
     const val COMMAND_METRICS = COMMAND_PREFIX + "metrics"
+    const val COMMAND_PAUSE = COMMAND_PREFIX + "pause"
 }
