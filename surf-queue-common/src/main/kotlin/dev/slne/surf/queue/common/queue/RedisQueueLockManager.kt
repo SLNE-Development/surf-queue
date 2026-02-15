@@ -8,9 +8,9 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
     private val cleanupLock = redisApi.redisson.getLock(keys.cleanupLockKey)
 
     suspend fun <T> withTransferLock(
-        threadId: Long,
         block: suspend (acquired: Boolean) -> T
     ): T {
+        val threadId = Thread.currentThread().threadId()
         val acquired = transferLock.tryLockAsync(threadId).await()
         if (!acquired) return block(false)
 
@@ -22,13 +22,14 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
     }
 
     suspend fun withCleanupLock(block: suspend () -> Unit) {
-        val acquired = cleanupLock.tryLockAsync().await()
+        val threadId = Thread.currentThread().threadId()
+        val acquired = cleanupLock.tryLockAsync(threadId).await()
         if (!acquired) return
 
         try {
             block()
         } finally {
-            cleanupLock.unlockAsync().await()
+            cleanupLock.unlockAsync(threadId).await()
         }
     }
 }

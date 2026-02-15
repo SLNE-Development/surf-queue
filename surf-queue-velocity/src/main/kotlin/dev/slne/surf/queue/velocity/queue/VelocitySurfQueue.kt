@@ -9,7 +9,7 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.minutes
 
-class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(serverName) {
+class VelocitySurfQueue(serverName: String) : AbstractSurfQueue(serverName) {
     private val transferProcessor = RedisQueueTransferProcessor(serverName, store, lockManager, GRACE_PERIOD_MS)
     private val cleanup = RedisQueueCleanup(this, store, lockManager)
 

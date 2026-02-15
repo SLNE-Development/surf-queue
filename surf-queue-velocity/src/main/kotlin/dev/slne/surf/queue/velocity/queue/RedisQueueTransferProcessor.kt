@@ -57,9 +57,7 @@ class RedisQueueTransferProcessor(
         maxTransfers: Int,
         tryTransfer: suspend (QueueEntry) -> TransferAction
     ): Int {
-        val threadId = Thread.currentThread().threadId()
-
-        return lockManager.withTransferLock(threadId) { acquired ->
+        return lockManager.withTransferLock { acquired ->
             QueueMetrics.recordLockAttempt(acquired)
             if (acquired) {
                 doProcessTransfers(maxTransfers, tryTransfer)
