@@ -45,14 +45,24 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
         val meta = QueueEntry(uuid, now, priorityFixed)
         val added = store.enqueueIfAbsent(uuid, meta, score)
 
-        log.atInfo()
-            .log("Enqueued %s in queue %s with priority %d", uuid, serverName, priorityFixed)
+        if (added) {
+            onEnqueued()
+            log.atInfo()
+                .log("Enqueued %s in queue %s with priority %d", uuid, serverName, priorityFixed)
+        }
 
         return added
     }
 
+    protected open fun onEnqueued() {}
+    protected open fun onDequeued() {}
+
     override suspend fun dequeue(uuid: UUID): Boolean {
-        return store.dequeue(uuid)
+        val removed = store.dequeue(uuid)
+        if (removed) {
+            onDequeued()
+        }
+        return removed
     }
 
     override suspend fun isQueued(uuid: UUID): Boolean {

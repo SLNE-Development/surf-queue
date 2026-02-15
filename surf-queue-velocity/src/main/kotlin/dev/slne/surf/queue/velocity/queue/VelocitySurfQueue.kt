@@ -1,6 +1,7 @@
 package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.common.queue.AbstractSurfQueue
+import dev.slne.surf.queue.velocity.metrics.QueueMetrics
 import dev.slne.surf.queue.velocity.queue.display.QueueDisplay
 import dev.slne.surf.surfapi.core.api.util.logger
 import java.time.Instant
@@ -23,6 +24,14 @@ class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(ser
         const val LOCK_LEASE_SECONDS = 30L
     }
 
+    override fun onEnqueued() {
+        QueueMetrics.recordEnqueue(serverName)
+    }
+
+    override fun onDequeued() {
+        QueueMetrics.recordDequeue(serverName)
+    }
+
     suspend fun markPlayerReconnected(uuid: UUID) {
         store.clearLastSeen(uuid)
     }
@@ -35,6 +44,7 @@ class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(ser
 
     suspend fun tickSecond() {
         tickCount.incrementAndGet()
+        QueueMetrics.recordTick()
 
         try {
             cleanup.tick()

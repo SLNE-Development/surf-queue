@@ -3,6 +3,7 @@ package dev.slne.surf.queue.velocity.queue
 import dev.slne.surf.queue.common.queue.QueueEntry
 import dev.slne.surf.queue.common.queue.RedisQueueScorePacker
 import dev.slne.surf.queue.common.queue.RedisQueueStore
+import dev.slne.surf.queue.velocity.metrics.QueueMetrics
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
 import dev.slne.surf.surfapi.core.api.util.logger
@@ -56,8 +57,13 @@ class RedisQueueTransferProcessor(
     ): Int {
         val threadId = Thread.currentThread().threadId()
 
-        return store.tryWithTransferLock(threadId) {
-            doProcessTransfers(maxTransfers, tryTransfer)
+        return store.tryWithTransferLock(threadId) { acquired ->
+            QueueMetrics.recordLockAttempt(acquired)
+            if (acquired) {
+                doProcessTransfers(maxTransfers, tryTransfer)
+            } else {
+                0
+            }
         }
     }
 
@@ -81,6 +87,7 @@ class RedisQueueTransferProcessor(
                     VelocitySurfQueue.TransferAction.DONE -> {
                         store.dequeue(uuid)
                         transferred++
+                        QueueMetrics.recordTransfer(serverName)
                         log.atInfo()
                             .log("Transferred %s to %s", uuid, serverName)
                     }
@@ -92,19 +99,23 @@ class RedisQueueTransferProcessor(
 
                     VelocitySurfQueue.TransferAction.PLAYER_ALREADY_ON_SERVER -> {
                         store.dequeue(uuid)
+                        QueueMetrics.recordDequeue(serverName)
                         log.atInfo().log("Player %s is already on server %s", uuid, serverName)
                     }
 
                     VelocitySurfQueue.TransferAction.PLAYER_KICKED_FROM_SERVER -> {
+                        QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 5)
                     }
 
                     VelocitySurfQueue.TransferAction.PLAYER_ALREADY_CONNECTING -> {
+                        QueueMetrics.recordSkip(serverName)
                         skipEntry(uuid, entry)
                     }
 
                     VelocitySurfQueue.TransferAction.PLUGIN_CANCELLED_TRANSFER,
                     VelocitySurfQueue.TransferAction.ERROR -> {
+                        QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 3)
                     }
 
@@ -123,6 +134,8 @@ class RedisQueueTransferProcessor(
         val retryCount = store.incrementRetryCount(uuid)
         if (retryCount >= maxRetries) {
             store.dequeue(uuid)
+            QueueMetrics.recordRetryExhausted()
+            QueueMetrics.recordDequeue(serverName)
             log.atWarning()
                 .log("Player %s removed from queue %s after %d failed transfer attempts", uuid, serverName, retryCount)
         } else {
@@ -154,6 +167,8 @@ class RedisQueueTransferProcessor(
         }
 
         store.dequeue(uuid)
+        QueueMetrics.recordGraceExpiry()
+        QueueMetrics.recordDequeue(serverName)
         log.atInfo()
             .log("Player %s removed from queue %s (offline > %dms)", uuid, serverName, gracePeriodMs)
     }

@@ -8,12 +8,14 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.PluginContainer
 import com.velocitypowered.api.proxy.ProxyServer
 import dev.slne.surf.queue.common.SurfQueueInstance
+import dev.slne.surf.surfapi.velocity.api.metrics.Metrics
 import kotlinx.coroutines.runBlocking
 
 class VelocityMain @Inject constructor(
     val proxy: ProxyServer,
     val container: PluginContainer,
-    val suspendingPluginContainer: SuspendingPluginContainer
+    val suspendingPluginContainer: SuspendingPluginContainer,
+    val metricsFactory: Metrics.Factory
 ) {
     init {
         suspendingPluginContainer.initialize(this)

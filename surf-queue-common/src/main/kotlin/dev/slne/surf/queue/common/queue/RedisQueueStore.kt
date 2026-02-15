@@ -151,13 +151,13 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
 
     suspend fun tryWithTransferLock(
         threadId: Long,
-        block: suspend () -> Int
+        block: suspend (acquired: Boolean) -> Int
     ): Int {
         val acquired = transferLock.tryLockAsync(threadId).await()
-        if (!acquired) return 0
+        if (!acquired) return block(false)
 
         try {
-            return block()
+            return block(true)
         } finally {
             transferLock.unlockAsync(threadId).await()
         }
