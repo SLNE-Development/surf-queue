@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.minutes
 
 class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(serverName) {
-    private val transferProcessor = RedisQueueTransferProcessor(serverName, store, GRACE_PERIOD_MS)
-    private val cleanup = RedisQueueCleanup(this, store)
+    private val transferProcessor = RedisQueueTransferProcessor(serverName, store, lockManager, GRACE_PERIOD_MS)
+    private val cleanup = RedisQueueCleanup(this, store, lockManager)
 
     private val tickCount = AtomicLong(0)
 
@@ -46,30 +46,18 @@ class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(ser
         tickCount.incrementAndGet()
         QueueMetrics.recordTick()
 
-        try {
-            cleanup.tick()
-        } catch (e: Exception) {
-            log.atWarning()
-                .withCause(e)
-                .log("Failed to tick cleanup for queue %s", serverName)
-        }
+        safeTick("cleanup") { cleanup.tick() }
+        safeTick("transfers") { transferProcessor.tick() }
+        safeTick("display") { display.tick() }
+    }
 
+    private inline fun safeTick(component: String, block: () -> Unit) {
         try {
-            transferProcessor.tick()
-            println("Ticking transfers for queue $serverName:")
+            block()
         } catch (e: Exception) {
             log.atWarning()
                 .withCause(e)
-                .log("Failed to tick transfers for queue %s", serverName)
-        }
-
-        try {
-            display.tick()
-            println("Ticking display for queue $serverName:")
-        } catch (e: Exception) {
-            log.atWarning()
-                .withCause(e)
-                .log("Failed to tick display for queue %s", serverName)
+                .log("Failed to tick %s for queue %s", component, serverName)
         }
     }
 
@@ -77,16 +65,4 @@ class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(ser
         store.deleteAll()
     }
 
-    enum class TransferAction {
-        DONE,
-        PLAYER_NOT_FOUND,
-        PLAYER_NOT_CONNECTED_TO_A_SERVER,
-        PLAYER_ALREADY_ON_SERVER,
-        PLUGIN_CANCELLED_TRANSFER,
-        PLAYER_KICKED_FROM_SERVER,
-        SERVER_FULL,
-        PLAYER_ALREADY_CONNECTING,
-        SERVER_NOT_FOUND,
-        ERROR,
-    }
 }

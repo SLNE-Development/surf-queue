@@ -9,6 +9,7 @@ import java.util.*
 abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
     protected val keys = RedisQueueKeys(serverName)
     protected val store = RedisQueueStore(keys)
+    protected val lockManager = RedisQueueLockManager(keys)
     protected val epochMs = store.initEpochMs()
 
     companion object {

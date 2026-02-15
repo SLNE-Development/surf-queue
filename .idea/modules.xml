@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/surf-queue-api/surf-queue.surf-queue-api.main.iml" filepath="$PROJECT_DIR$/.idea/modules/surf-queue-api/surf-queue.surf-queue-api.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/surf-queue-common/surf-queue.surf-queue-common.main.iml" filepath="$PROJECT_DIR$/.idea/modules/surf-queue-common/surf-queue.surf-queue-common.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/surf-queue-paper/surf-queue.surf-queue-paper.main.iml" filepath="$PROJECT_DIR$/.idea/modules/surf-queue-paper/surf-queue.surf-queue-paper.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/surf-queue-velocity/surf-queue.surf-queue-velocity.main.iml" filepath="$PROJECT_DIR$/.idea/modules/surf-queue-velocity/surf-queue.surf-queue-velocity.main.iml" />
+    </modules>
+  </component>
+</project>

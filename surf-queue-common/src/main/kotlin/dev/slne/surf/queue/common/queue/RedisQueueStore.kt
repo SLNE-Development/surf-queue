@@ -29,8 +29,6 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
         CompositeCodec(UUIDCodec.INSTANCE, IntegerCodec.INSTANCE)
     )
 
-    private val transferLock = redisApi.redisson.getLock(keys.transferLockKey)
-    private val cleanupLock = redisApi.redisson.getLock(keys.cleanupLockKey)
     private val epochMsBucket = redisApi.redisson.getBucket<Long>(keys.epochMsKey, LongCodec.INSTANCE)
     private val pausedBucket = redisApi.redisson.getBucket<Int>(keys.pausedKey, IntegerCodec.INSTANCE)
 
@@ -60,19 +58,7 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
     }
 
     suspend fun dequeue(uuid: UUID): Boolean {
-        val batch = redisApi.redisson.createBatch(atomicBatchOptions())
-
-        val removeAsync = batch.getScoredSortedSet<UUID>(scoredSet.name, scoredSet.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, QueueEntry>(metaMap.name, metaMap.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, Long>(lastSeenMap.name, lastSeenMap.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, Int>(retryCountMap.name, retryCountMap.codec)
-            .removeAsync(uuid)
-
-        batch.executeAsync().await()
-        return removeAsync.await()
+       return batchRemove(uuid)
     }
 
     suspend fun isQueued(uuid: UUID): Boolean = scoredSet.containsAsync(uuid).await()
@@ -99,18 +85,7 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
     suspend fun getMeta(uuid: UUID): QueueEntry? = metaMap.getAsync(uuid).await()
 
     suspend fun removeAllFor(uuid: UUID) {
-        val batch = redisApi.redisson.createBatch(atomicBatchOptions())
-
-        batch.getScoredSortedSet<UUID>(scoredSet.name, scoredSet.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, QueueEntry>(metaMap.name, metaMap.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, Long>(lastSeenMap.name, lastSeenMap.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, Int>(retryCountMap.name, retryCountMap.codec)
-            .removeAsync(uuid)
-
-        batch.executeAsync().await()
+        batchRemove(uuid)
     }
 
     suspend fun putLastSeen(uuid: UUID, nowMs: Long) {
@@ -129,6 +104,22 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
         return scoredSet.addAsync(score, uuid).await()
     }
 
+    private suspend fun batchRemove(uuid: UUID): Boolean {
+        val batch = redisApi.redisson.createBatch(atomicBatchOptions())
+
+        val removeAsync = batch.getScoredSortedSet<UUID>(scoredSet.name, scoredSet.codec)
+            .removeAsync(uuid)
+        batch.getMap<UUID, QueueEntry>(metaMap.name, metaMap.codec)
+            .removeAsync(uuid)
+        batch.getMap<UUID, Long>(lastSeenMap.name, lastSeenMap.codec)
+            .removeAsync(uuid)
+        batch.getMap<UUID, Int>(retryCountMap.name, retryCountMap.codec)
+            .removeAsync(uuid)
+
+        batch.executeAsync().await()
+        return removeAsync.await()
+    }
+
     suspend fun deleteAll() {
         scoredSet.deleteAsync().await()
         metaMap.deleteAsync().await()
@@ -137,42 +128,11 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
 
     suspend fun isPaused() = pausedBucket.getAsync().await() == 1
 
-    suspend fun pause() {
-        pausedBucket.setAsync(1).await()
-    }
-
     suspend fun setPaused(paused: Boolean) {
         if (paused) {
             pausedBucket.setAsync(1).await()
         } else {
             pausedBucket.deleteAsync().await()
-        }
-    }
-
-    suspend fun tryWithTransferLock(
-        threadId: Long,
-        block: suspend (acquired: Boolean) -> Int
-    ): Int {
-        val acquired = transferLock.tryLockAsync(threadId).await()
-        if (!acquired) return block(false)
-
-        try {
-            return block(true)
-        } finally {
-            transferLock.unlockAsync(threadId).await()
-        }
-    }
-
-    suspend fun tryWithCleanupLock(
-        block: suspend () -> Unit
-    ) {
-        val acquired = cleanupLock.tryLockAsync().await()
-        if (!acquired) return
-
-        try {
-            block()
-        } finally {
-            cleanupLock.unlockAsync().await()
         }
     }
 }

@@ -1,6 +1,7 @@
 package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.common.queue.QueueEntry
+import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueScorePacker
 import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.velocity.metrics.QueueMetrics
@@ -14,6 +15,7 @@ import java.util.*
 class RedisQueueTransferProcessor(
     private val serverName: String,
     private val store: RedisQueueStore,
+    private val lockManager: RedisQueueLockManager,
     private val gracePeriodMs: Long
 ) {
     private val transfer = QueueTransfer(this, serverName)
@@ -53,11 +55,11 @@ class RedisQueueTransferProcessor(
 
     suspend fun processTransfers(
         maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> VelocitySurfQueue.TransferAction
+        tryTransfer: suspend (QueueEntry) -> TransferAction
     ): Int {
         val threadId = Thread.currentThread().threadId()
 
-        return store.tryWithTransferLock(threadId) { acquired ->
+        return lockManager.withTransferLock(threadId) { acquired ->
             QueueMetrics.recordLockAttempt(acquired)
             if (acquired) {
                 doProcessTransfers(maxTransfers, tryTransfer)
@@ -69,7 +71,7 @@ class RedisQueueTransferProcessor(
 
     private suspend fun doProcessTransfers(
         maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> VelocitySurfQueue.TransferAction
+        tryTransfer: suspend (QueueEntry) -> TransferAction
     ): Int {
         var transferred = 0
 
@@ -84,7 +86,7 @@ class RedisQueueTransferProcessor(
 
             try {
                 when (val result = tryTransfer(entry)) {
-                    VelocitySurfQueue.TransferAction.DONE -> {
+                    TransferAction.DONE -> {
                         store.dequeue(uuid)
                         transferred++
                         QueueMetrics.recordTransfer(serverName)
@@ -92,35 +94,35 @@ class RedisQueueTransferProcessor(
                             .log("Transferred %s to %s", uuid, serverName)
                     }
 
-                    VelocitySurfQueue.TransferAction.PLAYER_NOT_FOUND,
-                    VelocitySurfQueue.TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER -> {
+                    TransferAction.PLAYER_NOT_FOUND,
+                    TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER -> {
                         handlePlayerNotFound(uuid, entry)
                     }
 
-                    VelocitySurfQueue.TransferAction.PLAYER_ALREADY_ON_SERVER -> {
+                    TransferAction.PLAYER_ALREADY_ON_SERVER -> {
                         store.dequeue(uuid)
                         QueueMetrics.recordDequeue(serverName)
                         log.atInfo().log("Player %s is already on server %s", uuid, serverName)
                     }
 
-                    VelocitySurfQueue.TransferAction.PLAYER_KICKED_FROM_SERVER -> {
+                    TransferAction.PLAYER_KICKED_FROM_SERVER -> {
                         QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 5)
                     }
 
-                    VelocitySurfQueue.TransferAction.PLAYER_ALREADY_CONNECTING -> {
+                    TransferAction.PLAYER_ALREADY_CONNECTING -> {
                         QueueMetrics.recordSkip(serverName)
                         skipEntry(uuid, entry)
                     }
 
-                    VelocitySurfQueue.TransferAction.PLUGIN_CANCELLED_TRANSFER,
-                    VelocitySurfQueue.TransferAction.ERROR -> {
+                    TransferAction.PLUGIN_CANCELLED_TRANSFER,
+                    TransferAction.ERROR -> {
                         QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 3)
                     }
 
-                    VelocitySurfQueue.TransferAction.SERVER_FULL -> break
-                    VelocitySurfQueue.TransferAction.SERVER_NOT_FOUND -> break
+                    TransferAction.SERVER_FULL -> break
+                    TransferAction.SERVER_NOT_FOUND -> break
                 }
             } catch (_: AbortException) {
                 break

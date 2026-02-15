@@ -38,3 +38,4 @@ class VelocityMain @Inject constructor(
 }
 
 lateinit var plugin: VelocityMain
+    private set

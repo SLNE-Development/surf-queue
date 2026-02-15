@@ -25,15 +25,15 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
             try {
                 val corePlayer = surfCoreApi.getPlayer(entry.uuid)
                 if (corePlayer == null) {
-                    VelocitySurfQueue.TransferAction.PLAYER_NOT_FOUND
+                    TransferAction.PLAYER_NOT_FOUND
                 } else {
                     val currentPlayerServer = corePlayer.currentServer
                     val currentPlayerServerName = currentPlayerServer?.name
 
                     if (currentPlayerServer == null) { // Probably transferring to another proxy
-                        VelocitySurfQueue.TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER
+                        TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER
                     } else if (currentPlayerServerName == serverName) {
-                        VelocitySurfQueue.TransferAction.PLAYER_ALREADY_ON_SERVER
+                        TransferAction.PLAYER_ALREADY_ON_SERVER
                     } else {
                         tryTransferPlayer(corePlayer, coreServer)
                     }
@@ -43,7 +43,7 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
                 log.atWarning()
                     .withCause(e)
                     .log("Error during transfer for queue %s", serverName)
-                VelocitySurfQueue.TransferAction.ERROR
+                TransferAction.ERROR
             }
         }
     }
@@ -51,24 +51,24 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
     private suspend fun tryTransferPlayer(
         player: SurfPlayer,
         targetServer: SurfServer
-    ): VelocitySurfQueue.TransferAction {
+    ): TransferAction {
         val (status, message) = surfCoreApi.sendPlayerAwaiting(player, targetServer)
 
         return when (status) {
-            SurfServerConnectResult.Status.SERVER_NOT_FOUND -> VelocitySurfQueue.TransferAction.SERVER_NOT_FOUND
-            SurfServerConnectResult.Status.ALREADY_CONNECTED -> VelocitySurfQueue.TransferAction.PLAYER_ALREADY_ON_SERVER
-            SurfServerConnectResult.Status.CONNECTION_CANCELLED -> VelocitySurfQueue.TransferAction.PLUGIN_CANCELLED_TRANSFER
-            SurfServerConnectResult.Status.CONNECTION_IN_PROGRESS -> VelocitySurfQueue.TransferAction.PLAYER_ALREADY_CONNECTING
+            SurfServerConnectResult.Status.SERVER_NOT_FOUND -> TransferAction.SERVER_NOT_FOUND
+            SurfServerConnectResult.Status.ALREADY_CONNECTED -> TransferAction.PLAYER_ALREADY_ON_SERVER
+            SurfServerConnectResult.Status.CONNECTION_CANCELLED -> TransferAction.PLUGIN_CANCELLED_TRANSFER
+            SurfServerConnectResult.Status.CONNECTION_IN_PROGRESS -> TransferAction.PLAYER_ALREADY_CONNECTING
             SurfServerConnectResult.Status.SERVER_DISCONNECTED -> {
                 if (targetServer.maxPlayers <= targetServer.getPlayerCount()) {
-                    VelocitySurfQueue.TransferAction.SERVER_FULL
+                    TransferAction.SERVER_FULL
                 } else {
-                    VelocitySurfQueue.TransferAction.PLAYER_KICKED_FROM_SERVER
+                    TransferAction.PLAYER_KICKED_FROM_SERVER
                 }
             }
 
-            SurfServerConnectResult.Status.SUCCESS -> VelocitySurfQueue.TransferAction.DONE
-            SurfServerConnectResult.Status.UNKNOWN_ERROR -> VelocitySurfQueue.TransferAction.ERROR
+            SurfServerConnectResult.Status.SUCCESS -> TransferAction.DONE
+            SurfServerConnectResult.Status.UNKNOWN_ERROR -> TransferAction.ERROR
         }
     }
 }
