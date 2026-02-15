@@ -3,25 +3,46 @@ package dev.slne.surf.queue.velocity.queue
 import dev.slne.surf.queue.common.queue.QueueEntry
 import dev.slne.surf.queue.common.queue.RedisQueueScorePacker
 import dev.slne.surf.queue.common.queue.RedisQueueStore
+import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
+import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
 import dev.slne.surf.surfapi.core.api.util.logger
+import java.time.Duration
 import java.time.Instant
 import java.util.*
 
 class RedisQueueTransferProcessor(
     private val serverName: String,
     private val store: RedisQueueStore,
-    private val gracePeriodMs: Long,
-    private val lockLeaseSeconds: Long
+    private val gracePeriodMs: Long
 ) {
     private val transfer = QueueTransfer(this, serverName)
+    private var delay = createDelay()
+    private var attempts: Int = 0
+    private var nextTransferTime = System.currentTimeMillis()
 
     companion object {
         private val log = logger()
+        private fun createDelay(): DelayStrategy =
+            DecorrelatedJitterDelay(Duration.ofSeconds(2), Duration.ofSeconds(10))
     }
 
     suspend fun tick() {
+        if (store.isPaused()) return
+
         try {
-            transfer.tryTransfer()
+            // decrease CPU usage and redis commands when the queue is empty or the server is full
+            if (System.currentTimeMillis() < nextTransferTime) return
+
+            val transferred = transfer.tryTransfer()
+            if (transferred <= 0) {
+                val delay = delay.calcDelay(attempts)
+                nextTransferTime = System.currentTimeMillis() + delay.toMillis()
+                attempts++
+            } else {
+                attempts = 0
+                delay = createDelay()
+            }
+
         } catch (e: Exception) {
             log.atWarning()
                 .withCause(e)
@@ -35,17 +56,14 @@ class RedisQueueTransferProcessor(
     ): Int {
         val threadId = Thread.currentThread().threadId()
 
-        return store.tryWithTransferLock(threadId, lockLeaseSeconds) {
-            doProcessTransfers(maxTransfers, tryTransfer) {
-                store.isTransferLockHeldBy(threadId)
-            }
+        return store.tryWithTransferLock(threadId) {
+            doProcessTransfers(maxTransfers, tryTransfer)
         }
     }
 
     private suspend fun doProcessTransfers(
         maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> VelocitySurfQueue.TransferAction,
-        isLocked: suspend () -> Boolean
+        tryTransfer: suspend (QueueEntry) -> VelocitySurfQueue.TransferAction
     ): Int {
         var transferred = 0
 
@@ -54,7 +72,6 @@ class RedisQueueTransferProcessor(
 
             val entry = store.getMeta(uuid)
             if (entry == null) {
-                // no metadata
                 store.removeAllFor(uuid)
                 continue
             }
@@ -78,11 +95,17 @@ class RedisQueueTransferProcessor(
                         log.atInfo().log("Player %s is already on server %s", uuid, serverName)
                     }
 
-                    VelocitySurfQueue.TransferAction.PLUGIN_CANCELLED_TRANSFER,
-                    VelocitySurfQueue.TransferAction.PLAYER_KICKED_FROM_SERVER,
-                    VelocitySurfQueue.TransferAction.PLAYER_ALREADY_CONNECTING,
-                    VelocitySurfQueue.TransferAction.ERROR -> {
+                    VelocitySurfQueue.TransferAction.PLAYER_KICKED_FROM_SERVER -> {
+                        retryEntry(uuid, entry, maxRetries = 5)
+                    }
+
+                    VelocitySurfQueue.TransferAction.PLAYER_ALREADY_CONNECTING -> {
                         skipEntry(uuid, entry)
+                    }
+
+                    VelocitySurfQueue.TransferAction.PLUGIN_CANCELLED_TRANSFER,
+                    VelocitySurfQueue.TransferAction.ERROR -> {
+                        retryEntry(uuid, entry, maxRetries = 3)
                     }
 
                     VelocitySurfQueue.TransferAction.SERVER_FULL -> break
@@ -91,11 +114,28 @@ class RedisQueueTransferProcessor(
             } catch (_: AbortException) {
                 break
             }
-
-            if (!isLocked()) break
         }
 
         return transferred
+    }
+
+    private suspend fun retryEntry(uuid: UUID, meta: QueueEntry, maxRetries: Int) {
+        val retryCount = store.incrementRetryCount(uuid)
+        if (retryCount >= maxRetries) {
+            store.dequeue(uuid)
+            log.atWarning()
+                .log("Player %s removed from queue %s after %d failed transfer attempts", uuid, serverName, retryCount)
+        } else {
+            skipEntry(uuid, meta)
+            log.atInfo()
+                .log(
+                    "Retrying transfer for player %s in queue %s (attempt %d/%d)",
+                    uuid,
+                    serverName,
+                    retryCount,
+                    maxRetries
+                )
+        }
     }
 
     private suspend fun handlePlayerNotFound(uuid: UUID, entry: QueueEntry) {
@@ -119,10 +159,11 @@ class RedisQueueTransferProcessor(
     }
 
     private suspend fun skipEntry(uuid: UUID, meta: QueueEntry) {
-        val scores = store.top2()
-        if (scores.size < 2) throw AbortException()
+        val currentScore = store.getScore(uuid) ?: throw AbortException()
+        val nextEntries = store.entriesAfter(uuid, limit = 1)
+        if (nextEntries.isEmpty()) throw AbortException()
 
-        val nextScoreRaw = scores.last().score
+        val nextScoreRaw = nextEntries.first().score
         val nextScore = RedisQueueScorePacker.unpack(nextScoreRaw)
 
         var nextSequence = nextScore.sequence + 1

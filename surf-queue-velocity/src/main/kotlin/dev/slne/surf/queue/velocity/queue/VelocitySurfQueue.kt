@@ -3,12 +3,13 @@ package dev.slne.surf.queue.velocity.queue
 import dev.slne.surf.queue.common.queue.AbstractSurfQueue
 import dev.slne.surf.queue.velocity.queue.display.QueueDisplay
 import dev.slne.surf.surfapi.core.api.util.logger
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.minutes
 
 class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(serverName) {
-    private val transferProcessor = RedisQueueTransferProcessor(serverName, store, GRACE_PERIOD_MS, LOCK_LEASE_SECONDS)
+    private val transferProcessor = RedisQueueTransferProcessor(serverName, store, GRACE_PERIOD_MS)
     private val cleanup = RedisQueueCleanup(this, store)
 
     private val tickCount = AtomicLong(0)
@@ -24,6 +25,10 @@ class VelocitySurfQueue(override val serverName: String) : AbstractSurfQueue(ser
 
     suspend fun markPlayerReconnected(uuid: UUID) {
         store.clearLastSeen(uuid)
+    }
+
+    suspend fun markPlayerDisconnected(uuid: UUID) {
+        store.putLastSeen(uuid, Instant.now().toEpochMilli())
     }
 
     fun getTickCount() = tickCount.get()

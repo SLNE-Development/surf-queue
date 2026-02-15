@@ -8,8 +8,8 @@ import io.netty.buffer.Unpooled
 import java.util.*
 
 class QueueEntryCodec : BaseCodec() {
-    private val encoder = Encoder { entry ->
-        val entry = entry as QueueEntry
+    private val encoder = Encoder { obj ->
+        val entry = obj as QueueEntry
         val buf = Unpooled.buffer()
 
         try {

@@ -4,7 +4,10 @@ import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.surfapi.core.api.util.logger
 import java.time.Instant
 
-class RedisQueueCleanup(private val queue: VelocitySurfQueue, private val store: RedisQueueStore) {
+class RedisQueueCleanup(
+    private val queue: VelocitySurfQueue,
+    private val store: RedisQueueStore
+) {
 
     companion object {
         private val log = logger()
@@ -12,7 +15,9 @@ class RedisQueueCleanup(private val queue: VelocitySurfQueue, private val store:
 
     suspend fun tick() {
         if (queue.getTickCount() % 30 == 0L) {
-            cleanupExpiredEntries()
+            store.tryWithCleanupLock {
+                cleanupExpiredEntries()
+            }
         }
     }
 

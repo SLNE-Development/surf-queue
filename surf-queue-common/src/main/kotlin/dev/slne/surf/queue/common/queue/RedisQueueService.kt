@@ -24,10 +24,17 @@ class RedisQueueService : SurfQueueService {
         redisApi.redissonReactive.keys
             .getKeys(
                 KeysScanOptions.defaults()
-                    .pattern(RedisQueueKeys.QUEUE_PREFIX + "*")
+                    .pattern(RedisQueueKeys.EPOCH_MS_KEY_PATTERN)
             ).asFlow()
             .collect {
-                get(it.replaceFirst(RedisQueueKeys.QUEUE_PREFIX, ""))
+                val serverName =
+                    it.replaceFirst(RedisQueueKeys.QUEUE_PREFIX, "").replaceFirst(RedisQueueKeys.EPOCH_MS_SUFFIX, "")
+
+                repeat(20) {
+                    println("Found queue for server $serverName in Redis, fetching...")
+                }
+
+                get(serverName)
             }
     }
 

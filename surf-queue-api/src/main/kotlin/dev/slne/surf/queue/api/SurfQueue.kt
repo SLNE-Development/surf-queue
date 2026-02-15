@@ -17,6 +17,10 @@ interface SurfQueue {
     suspend fun getPosition(uuid: UUID): Int?
     suspend fun size(): Int
 
+    suspend fun isPaused(): Boolean
+    suspend fun pause()
+    suspend fun resume()
+
     suspend fun getAllUuidsWithPosition(): Collection<Object2IntMap.Entry<UUID>>
 
     @OptIn(InternalSurfQueueApi::class)

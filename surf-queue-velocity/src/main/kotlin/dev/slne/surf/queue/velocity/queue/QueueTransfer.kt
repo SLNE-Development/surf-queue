@@ -12,14 +12,16 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
         private val log = logger()
     }
 
-    suspend fun tryTransfer() {
-        val coreServer = surfCoreApi.getServerByName(serverName) ?: return
+    suspend fun tryTransfer(): Int {
+        val coreServer = surfCoreApi.getServerByName(serverName) ?: return 0
 
-        if (coreServer.getPlayerCount() >= coreServer.maxPlayers) return
-        val availableSlots = coreServer.maxPlayers - coreServer.getPlayerCount()
-        if (availableSlots <= 0) return
+        val playerCount = coreServer.getPlayerCount()
+        val maxPlayers = coreServer.maxPlayers
+        val availableSlots = maxPlayers - playerCount
 
-        processor.processTransfers(availableSlots) { entry ->
+        if (availableSlots <= 0) return 0
+
+        return processor.processTransfers(availableSlots) { entry ->
             try {
                 val corePlayer = surfCoreApi.getPlayer(entry.uuid)
                 if (corePlayer == null) {

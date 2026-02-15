@@ -11,6 +11,7 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
     companion object {
         private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")
         private val spinnerReversed = spinner.reversedArray()
+        private const val PAUSE_CHAR = '⏸'
     }
 
     private var cachedUuidsWithPosition: Collection<Object2IntMap.Entry<UUID>>? = null
@@ -23,11 +24,12 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
         updateActionBars()
     }
 
-    private fun updateActionBars() {
+    private suspend fun updateActionBars() {
         val uuidsWithPosition = cachedUuidsWithPosition ?: return
         val spinnerIndex = (queue.getTickCount() % spinner.size).toInt()
         val spinnerEnd = spinner[spinnerIndex]
         val spinnerStart = spinnerReversed[spinnerIndex]
+        val paused = queue.isPaused()
 
         for (entry in uuidsWithPosition) {
             val uuid = entry.key
@@ -35,15 +37,25 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
             val player = uuid.toVelocityPlayer() ?: continue
 
             player.sendActionBar(buildText {
-                spacer(spinnerStart)
-                appendSpace()
-                variableValue(queue.serverName)
-                appendSpace()
-                spacer('|')
-                appendSpace()
-                variableValue("$position/${uuidsWithPosition.size}")
-                appendSpace()
-                spacer(spinnerEnd)
+                if (paused) {
+                    spacer(PAUSE_CHAR)
+                    appendSpace()
+                    variableValue(queue.serverName)
+                    appendSpace()
+                    spacer('|')
+                    appendSpace()
+                    variableValue("Pausiert")
+                } else {
+                    spacer(spinnerStart)
+                    appendSpace()
+                    variableValue(queue.serverName)
+                    appendSpace()
+                    spacer('|')
+                    appendSpace()
+                    variableValue("$position/${uuidsWithPosition.size}")
+                    appendSpace()
+                    spacer(spinnerEnd)
+                }
             })
         }
     }

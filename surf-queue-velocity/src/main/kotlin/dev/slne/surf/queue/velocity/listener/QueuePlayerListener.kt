@@ -2,11 +2,13 @@ package dev.slne.surf.queue.velocity.listener
 
 import com.github.shynixn.mccoroutine.velocity.launch
 import com.velocitypowered.api.event.Subscribe
+import com.velocitypowered.api.event.connection.DisconnectEvent
 import com.velocitypowered.api.event.connection.PostLoginEvent
-import dev.slne.surf.queue.velocity.plugin
 import dev.slne.surf.queue.common.queue.RedisQueueService
+import dev.slne.surf.queue.velocity.plugin
 import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.surfapi.core.api.util.logger
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 object QueuePlayerListener {
@@ -25,6 +27,27 @@ object QueuePlayerListener {
                         log.atWarning()
                             .withCause(e)
                             .log("Failed to clear grace period for %s in queue %s", uuid, queue.serverName)
+                    }
+                }
+            }
+        }
+    }
+
+    @Subscribe
+    suspend fun onDisconnect(event: DisconnectEvent) {
+        val uuid = event.player.uniqueId
+        coroutineScope {
+            for (queue in RedisQueueService.get().getAll()) {
+                require(queue is VelocitySurfQueue)
+                launch {
+                    try {
+                        if (queue.isQueued(uuid)) {
+                            queue.markPlayerDisconnected(uuid)
+                        }
+                    } catch (e: Exception) {
+                        log.atWarning()
+                            .withCause(e)
+                            .log("Failed to mark disconnect for %s in queue %s", uuid, queue.serverName)
                     }
                 }
             }

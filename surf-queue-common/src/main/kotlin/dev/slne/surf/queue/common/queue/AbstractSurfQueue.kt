@@ -3,7 +3,6 @@ package dev.slne.surf.queue.common.queue
 import dev.slne.surf.queue.api.SurfQueue
 import dev.slne.surf.surfapi.core.api.util.logger
 import it.unimi.dsi.fastutil.objects.Object2IntMap
-import kotlinx.coroutines.future.await
 import java.time.Instant
 import java.util.*
 
@@ -44,7 +43,7 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
 
 
         val meta = QueueEntry(uuid, now, priorityFixed)
-        val added = store.enqueue(uuid, meta, score)
+        val added = store.enqueueIfAbsent(uuid, meta, score)
 
         log.atInfo()
             .log("Enqueued %s in queue %s with priority %d", uuid, serverName, priorityFixed)
@@ -73,5 +72,17 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
 
     override suspend fun size(): Int {
         return store.size()
+    }
+
+    override suspend fun isPaused(): Boolean {
+        return store.isPaused()
+    }
+
+    override suspend fun resume() {
+        store.setPaused(false)
+    }
+
+    override suspend fun pause() {
+        store.setPaused(true)
     }
 }
