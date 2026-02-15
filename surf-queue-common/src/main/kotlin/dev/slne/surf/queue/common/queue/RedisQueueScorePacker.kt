@@ -1,4 +1,4 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.common.queue
 
 object RedisQueueScorePacker {
     private const val PRIORITY_BITS = 7

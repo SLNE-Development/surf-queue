@@ -1,8 +1,17 @@
-package dev.slne.surf.queue.velocity.transfer
+package dev.slne.surf.queue.velocity.queue
 
-import dev.slne.surf.queue.velocity.queue.RedisQueueService
+import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.surfapi.core.api.util.logger
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 object QueueTickTask {
@@ -33,7 +42,8 @@ object QueueTickTask {
 
     suspend fun tick() {
         coroutineScope {
-            for (queue in RedisQueueService.getAll()) {
+            for (queue in RedisQueueService.get().getAll()) {
+                require(queue is VelocitySurfQueue) { "Queue must be VelocitySurfQueue" }
                 launch {
                     try {
                         queue.tickSecond()

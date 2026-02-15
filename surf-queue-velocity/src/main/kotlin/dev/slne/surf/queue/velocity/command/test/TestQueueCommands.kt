@@ -8,8 +8,8 @@ import dev.slne.surf.core.api.common.player.SurfPlayer
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.velocity.command.argument.surfBackendServerArgument
 import dev.slne.surf.core.api.velocity.command.argument.surfPlayerArgument
-import dev.slne.surf.queue.velocity.queue.RedisQueueService
-import dev.slne.surf.queue.velocity.transfer.QueueTickTask
+import dev.slne.surf.queue.common.queue.RedisQueueService
+import dev.slne.surf.queue.velocity.queue.QueueTickTask
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 import dev.slne.surf.surfapi.velocity.api.command.executors.anyExecutorSuspend
 
@@ -22,7 +22,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
                     val player: SurfPlayer by args
                     val server: SurfServer by args
 
-                    val queue = RedisQueueService.get(server.name)
+                    val queue = RedisQueueService.get().get(server.name)
                     queue.enqueue(player.uuid, 0)
                     sender.sendText {
                         appendSuccessPrefix()

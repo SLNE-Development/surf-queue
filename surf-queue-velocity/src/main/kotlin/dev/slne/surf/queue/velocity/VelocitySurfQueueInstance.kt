@@ -2,9 +2,11 @@ package dev.slne.surf.queue.velocity
 
 import com.google.auto.service.AutoService
 import dev.slne.surf.queue.common.SurfQueueInstance
+import dev.slne.surf.queue.common.queue.AbstractSurfQueue
 import dev.slne.surf.queue.velocity.command.queueCommand
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
-import dev.slne.surf.queue.velocity.transfer.QueueTickTask
+import dev.slne.surf.queue.velocity.queue.QueueTickTask
+import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 
 @AutoService(SurfQueueInstance::class)
 class VelocitySurfQueueInstance : SurfQueueInstance() {
@@ -21,5 +23,9 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
         super.disable()
 
         QueueTickTask.shutdown()
+    }
+
+    override fun createQueue(serverName: String): AbstractSurfQueue {
+        return VelocitySurfQueue(serverName)
     }
 }

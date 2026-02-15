@@ -1,12 +1,12 @@
 package dev.slne.surf.queue.velocity.queue.display
 
-import dev.slne.surf.queue.velocity.queue.RedisQueue
+import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.queue.velocity.util.toVelocityPlayer
 import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import java.util.*
 
-class QueueDisplay(private val queue: RedisQueue) {
+class QueueDisplay(private val queue: VelocitySurfQueue) {
 
     companion object {
         private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")

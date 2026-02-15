@@ -6,3 +6,7 @@ surfCoreApi {
     withSurfRedis()
     withCoreCommon()
 }
+
+dependencies {
+    api(project(":surf-queue-api"))
+}

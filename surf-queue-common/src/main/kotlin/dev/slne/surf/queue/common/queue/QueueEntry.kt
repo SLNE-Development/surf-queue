@@ -1,8 +1,8 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.common.queue
 
 import java.io.Serial
 import java.io.Serializable
-import java.util.*
+import java.util.UUID
 
 data class QueueEntry(
     val uuid: UUID,
@@ -12,6 +12,6 @@ data class QueueEntry(
 
     companion object {
         @Serial
-        const val serialVersionUID = 1L
+        const val serialVersionUID = 2L
     }
 }
