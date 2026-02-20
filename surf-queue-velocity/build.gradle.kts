@@ -13,4 +13,9 @@ dependencies {
 
 velocityPluginFile {
     main = "dev.slne.surf.queue.velocity.VelocityMain"
+    pluginDependencies {
+        register("luckperms") {
+            optional = false
+        }
+    }
 }

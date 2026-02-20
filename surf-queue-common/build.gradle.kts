@@ -9,4 +9,5 @@ surfCoreApi {
 
 dependencies {
     api(project(":surf-queue-api"))
+    compileOnlyApi("net.luckperms:api:5.4")
 }

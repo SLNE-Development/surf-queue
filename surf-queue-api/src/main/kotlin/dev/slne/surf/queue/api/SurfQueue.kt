@@ -11,6 +11,7 @@ interface SurfQueue {
 
     fun server() = surfCoreApi.getServerByName(serverName)
 
+    suspend fun enqueue(uuid: UUID): Boolean
     suspend fun enqueue(uuid: UUID, priority: Int): Boolean
     suspend fun dequeue(uuid: UUID): Boolean
     suspend fun isQueued(uuid: UUID): Boolean

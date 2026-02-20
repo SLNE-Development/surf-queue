@@ -13,6 +13,7 @@ import dev.slne.surf.surfapi.core.api.util.logger
 
 @AutoService(SurfQueueInstance::class)
 class VelocitySurfQueueInstance : SurfQueueInstance() {
+    override val componentOwner get() = plugin.container
 
     override suspend fun enable() {
         super.enable()

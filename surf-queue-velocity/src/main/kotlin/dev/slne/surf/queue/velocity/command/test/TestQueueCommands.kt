@@ -23,7 +23,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
                     val server: SurfServer by args
 
                     val queue = RedisQueueService.get().get(server.name)
-                    queue.enqueue(player.uuid, 0)
+                    queue.enqueue(player.uuid)
                     sender.sendText {
                         appendSuccessPrefix()
                         success("Enqueued player ")

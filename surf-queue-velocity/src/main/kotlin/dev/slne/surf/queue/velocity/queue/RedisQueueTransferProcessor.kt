@@ -34,17 +34,17 @@ class RedisQueueTransferProcessor(
 
         try {
             // decrease CPU usage and redis commands when the queue is empty or the server is full
-            if (System.currentTimeMillis() < nextTransferTime) return
+//            if (System.currentTimeMillis() < nextTransferTime) return
 
             val transferred = transfer.tryTransfer()
-            if (transferred <= 0) {
-                val delay = delay.calcDelay(attempts)
-                nextTransferTime = System.currentTimeMillis() + delay.toMillis()
-                attempts++
-            } else {
-                attempts = 0
-                delay = createDelay()
-            }
+//            if (transferred <= 0) {
+//                val delay = delay.calcDelay(attempts)
+//                nextTransferTime = System.currentTimeMillis() + delay.toMillis()
+//                attempts++
+//            } else {
+//                attempts = 0
+//                delay = createDelay()
+//            }
 
         } catch (e: Exception) {
             log.atWarning()

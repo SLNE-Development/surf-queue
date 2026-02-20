@@ -7,6 +7,8 @@ import dev.slne.surf.queue.paper.queue.PaperSurfQueue
 
 @AutoService(SurfQueueInstance::class)
 class PaperSurfQueueInstance : SurfQueueInstance() {
+    override val componentOwner get() = dev.slne.surf.queue.paper.plugin
+
     override fun createQueue(serverName: String): AbstractSurfQueue {
         return PaperSurfQueue(serverName)
     }

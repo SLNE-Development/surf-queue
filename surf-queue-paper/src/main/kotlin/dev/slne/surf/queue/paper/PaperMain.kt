@@ -2,6 +2,7 @@ package dev.slne.surf.queue.paper
 
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import dev.slne.surf.queue.common.SurfQueueInstance
+import org.bukkit.plugin.java.JavaPlugin
 
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
@@ -16,3 +17,5 @@ class PaperMain : SuspendingJavaPlugin() {
         SurfQueueInstance.get().disable()
     }
 }
+
+val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)

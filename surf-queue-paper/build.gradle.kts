@@ -1,3 +1,5 @@
+import dev.slne.surf.surfapi.gradle.util.registerRequired
+
 plugins {
     id("dev.slne.surf.surfapi.gradle.paper-plugin")
 }
@@ -5,6 +7,9 @@ plugins {
 surfPaperPluginApi {
     mainClass("dev.slne.surf.queue.paper.PaperMain")
     authors.addAll(providers.gradleProperty("authors").map { it.split(",") })
+    serverDependencies {
+        registerRequired("LuckPerms")
+    }
 }
 
 dependencies {

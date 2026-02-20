@@ -1,6 +1,7 @@
 package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.queue.api.SurfQueue
+import dev.slne.surf.queue.common.hook.priority.LuckpermsPriorityHook
 import dev.slne.surf.surfapi.core.api.util.logger
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import java.time.Instant
@@ -30,6 +31,12 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
                 RedisQueueScorePacker.MAX_PRIORITY
             }
         }
+    }
+
+    override suspend fun enqueue(uuid: UUID): Boolean {
+        val priority = LuckpermsPriorityHook.getPriority(uuid)
+        println("Got priority %d for %s".format(priority, uuid))
+        return enqueue(uuid, priority)
     }
 
     override suspend fun enqueue(uuid: UUID, priority: Int): Boolean {
