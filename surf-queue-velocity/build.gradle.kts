@@ -9,6 +9,9 @@ surfVelocityApi {
 
 dependencies {
     implementation(project(":surf-queue-common"))
+
+    compileOnly("io.github.toxicity188:BetterHud-standard-api:1.14.1") //Standard api
+    compileOnly("io.github.toxicity188:BetterHud-velocity-api:1.14.1") //Platform api
 }
 
 velocityPluginFile {

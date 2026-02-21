@@ -114,7 +114,7 @@ class RedisQueueTransferProcessor(
                     }
 
                     TransferAction.PLUGIN_CANCELLED_TRANSFER,
-                    TransferAction.ERROR -> {
+                    TransferAction.ERROR, TransferAction.TIMEOUT -> {
                         QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 3)
                     }

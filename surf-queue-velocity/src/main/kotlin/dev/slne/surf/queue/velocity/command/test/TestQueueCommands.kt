@@ -48,7 +48,8 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
 
     literalArgument("transferTask") {
         literalArgument("start") {
-            anyExecutor { source, arguments ->
+            anyExecutorSuspend { source, arguments ->
+                QueueTickTask.shutdown()
                 QueueTickTask.startTransferring()
                 source.sendText {
                     appendSuccessPrefix()
@@ -58,7 +59,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
         }
 
         literalArgument("stop") {
-            anyExecutor { source, arguments ->
+            anyExecutorSuspend { source, arguments ->
                 QueueTickTask.shutdown()
                 source.sendText {
                     appendSuccessPrefix()

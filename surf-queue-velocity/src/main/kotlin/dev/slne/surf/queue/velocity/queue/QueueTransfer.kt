@@ -5,6 +5,9 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
 import dev.slne.surf.core.api.common.surfCoreApi
 import dev.slne.surf.surfapi.core.api.util.logger
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.seconds
 
 class QueueTransfer(private val processor: RedisQueueTransferProcessor, private val serverName: String) {
 
@@ -52,7 +55,16 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
         player: SurfPlayer,
         targetServer: SurfServer
     ): TransferAction {
-        val (status, message) = surfCoreApi.sendPlayerAwaiting(player, targetServer)
+        val (status, message) = try {
+            withTimeout(30.seconds) {
+                surfCoreApi.sendPlayerAwaiting(player, targetServer)
+            }
+        } catch (e: TimeoutCancellationException) {
+            log.atWarning()
+                .withCause(e)
+                .log("Timed out waiting for player %s to connect to server %s", player.uuid, targetServer.name)
+            return TransferAction.TIMEOUT
+        }
 
         return when (status) {
             SurfServerConnectResult.Status.SERVER_NOT_FOUND -> TransferAction.SERVER_NOT_FOUND

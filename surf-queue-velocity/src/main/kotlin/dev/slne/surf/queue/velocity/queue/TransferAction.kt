@@ -11,4 +11,5 @@ enum class TransferAction {
     PLAYER_ALREADY_CONNECTING,
     SERVER_NOT_FOUND,
     ERROR,
+    TIMEOUT
 }

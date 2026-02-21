@@ -1,6 +1,8 @@
 package dev.slne.surf.queue.velocity.queue
 
+import com.github.shynixn.mccoroutine.velocity.launch
 import dev.slne.surf.queue.common.queue.RedisQueueService
+import dev.slne.surf.queue.velocity.plugin
 import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.seconds
@@ -8,20 +10,12 @@ import kotlin.time.Duration.Companion.seconds
 object QueueTickTask {
 
     private val log = logger()
-    private val scope = CoroutineScope(
-        Dispatchers.Default +
-                CoroutineName("surf-queue-transfer") +
-                SupervisorJob() +
-                CoroutineExceptionHandler { context, throwable ->
-                    log.atSevere()
-                        .withCause(throwable)
-                        .log("An exception occurred in the transfer task.")
-                })
+    private var job: Job? = null
 
     private var lastFetch = 0L
 
     fun startTransferring() {
-        scope.launch {
+        job = plugin.container.launch {
             while (isActive) {
                 delay(1.seconds)
                 tick()
@@ -29,8 +23,9 @@ object QueueTickTask {
         }
     }
 
-    fun shutdown() {
-        scope.cancel("Shutting down transfer task.")
+    suspend fun shutdown() {
+        job?.cancelAndJoin()
+        job = null
     }
 
     suspend fun tick() {
