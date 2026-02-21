@@ -8,6 +8,7 @@ plugins {
 surfPaperPluginApi {
     mainClass("dev.slne.surf.queue.paper.PaperMain")
     withSurfRedis()
+    withCorePaper()
     authors.addAll(providers.gradleProperty("authors").map { it.split(",") })
     serverDependencies {
         registerRequired("LuckPerms")
