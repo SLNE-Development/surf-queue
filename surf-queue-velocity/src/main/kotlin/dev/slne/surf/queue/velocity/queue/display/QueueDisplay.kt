@@ -17,7 +17,7 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
     private var cachedUuidsWithPosition: Collection<Object2IntMap.Entry<UUID>>? = null
 
     suspend fun tick() {
-        if (queue.getTickCount() % 3 == 0L) {
+        if (queue.getTickCount() % 3L == 0L) {
             cachedUuidsWithPosition = queue.getAllUuidsWithPosition()
         }
 

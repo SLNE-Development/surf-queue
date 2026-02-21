@@ -18,6 +18,8 @@ object QueueTickTask {
                         .log("An exception occurred in the transfer task.")
                 })
 
+    private var lastFetch = 0L
+
     fun startTransferring() {
         scope.launch {
             while (isActive) {
@@ -32,6 +34,12 @@ object QueueTickTask {
     }
 
     suspend fun tick() {
+        val now = System.currentTimeMillis()
+        if (now - lastFetch > 30_000) {
+            lastFetch = now
+            RedisQueueService.get().fetchFromRedis()
+        }
+
         coroutineScope {
             for (queue in RedisQueueService.get().getAll()) {
                 require(queue is VelocitySurfQueue) { "Queue must be VelocitySurfQueue" }
