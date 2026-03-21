@@ -35,7 +35,6 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
 
     override suspend fun enqueue(uuid: UUID): Boolean {
         val priority = LuckpermsPriorityHook.getPriority(uuid)
-        println("Got priority %d for %s".format(priority, uuid))
         return enqueue(uuid, priority)
     }
 
