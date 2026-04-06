@@ -1,7 +1,8 @@
-
 [versions]
+polar = "2.3.0"
 
 [libraries]
+polar = { module = "top.polar:api", version.ref = "polar" }
 
 [bundles]
 
