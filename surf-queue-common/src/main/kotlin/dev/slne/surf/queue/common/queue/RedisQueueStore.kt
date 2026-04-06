@@ -82,6 +82,8 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
         retryCountMap.removeAsync(uuid).await()
     }
 
+    suspend fun getRetryCount(uuid: UUID): Int? = retryCountMap.getAsync(uuid).await()
+
     suspend fun getMeta(uuid: UUID): QueueEntry? = metaMap.getAsync(uuid).await()
 
     suspend fun removeAllFor(uuid: UUID) {

@@ -3,6 +3,7 @@ package dev.slne.surf.queue.paper
 import com.google.auto.service.AutoService
 import dev.slne.surf.queue.common.SurfQueueInstance
 import dev.slne.surf.queue.common.queue.AbstractSurfQueue
+import dev.slne.surf.queue.paper.command.queueCommand
 import dev.slne.surf.queue.paper.hook.startup.QueueStartHook
 import dev.slne.surf.queue.paper.queue.PaperQueueTickTask
 import dev.slne.surf.queue.paper.queue.PaperSurfQueue
@@ -34,6 +35,7 @@ class PaperSurfQueueInstance : SurfQueueInstance() {
         val serverName = Bukkit.getServerName()
         log.atInfo().log("Starting queue tick task for server: %s", serverName)
         PaperQueueTickTask.start(serverName)
+        queueCommand()
     }
 
     override suspend fun disable() {
