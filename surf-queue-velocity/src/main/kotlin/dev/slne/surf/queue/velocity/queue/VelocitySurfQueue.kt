@@ -4,9 +4,9 @@ import dev.slne.surf.queue.common.queue.AbstractSurfQueue
 import dev.slne.surf.queue.velocity.metrics.QueueMetrics
 import dev.slne.surf.queue.velocity.queue.display.QueueDisplay
 import dev.slne.surf.surfapi.core.api.util.logger
-import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.minutes
 
 class VelocitySurfQueue(serverName: String) : AbstractSurfQueue(serverName) {
@@ -54,6 +54,8 @@ class VelocitySurfQueue(serverName: String) : AbstractSurfQueue(serverName) {
     private inline fun safeTick(component: String, block: () -> Unit) {
         try {
             block()
+        } catch (e: CancellationException) {
+            throw e // Never swallow coroutine cancellation
         } catch (e: Exception) {
             log.atWarning()
                 .withCause(e)

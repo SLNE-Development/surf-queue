@@ -33,18 +33,20 @@ class RedisQueueTransferProcessor(
         if (store.isPaused()) return
 
         try {
-            // decrease CPU usage and redis commands when the queue is empty or the server is full
-//            if (System.currentTimeMillis() < nextTransferTime) return
+            // Exponential backoff: decrease CPU usage and Redis commands when the
+            // queue is empty or the target server is full.
+            if (System.currentTimeMillis() < nextTransferTime) return
 
             val transferred = transfer.tryTransfer()
-//            if (transferred <= 0) {
-//                val delay = delay.calcDelay(attempts)
-//                nextTransferTime = System.currentTimeMillis() + delay.toMillis()
-//                attempts++
-//            } else {
-//                attempts = 0
-//                delay = createDelay()
-//            }
+            if (transferred <= 0) {
+                val delayDuration = delay.calcDelay(attempts)
+                nextTransferTime = System.currentTimeMillis() + delayDuration.toMillis()
+                attempts++
+            } else {
+                attempts = 0
+                delay = createDelay()
+                nextTransferTime = System.currentTimeMillis()
+            }
 
         } catch (e: Exception) {
             log.atWarning()
@@ -114,9 +116,26 @@ class RedisQueueTransferProcessor(
                     }
 
                     TransferAction.PLUGIN_CANCELLED_TRANSFER,
-                    TransferAction.ERROR, TransferAction.TIMEOUT -> {
+                    TransferAction.ERROR -> {
                         QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 3)
+                    }
+
+                    TransferAction.TIMEOUT -> {
+                        // Timeout means the target server is likely unreachable.
+                        // Dequeue immediately instead of retrying with another 30 s timeout
+                        // to avoid blocking the entire queue for extended periods.
+                        store.dequeue(uuid)
+                        QueueMetrics.recordFailedTransfer(serverName)
+                        QueueMetrics.recordDequeue(serverName)
+                        log.atWarning()
+                            .log(
+                                "Player %s removed from queue %s due to transfer timeout",
+                                uuid,
+                                serverName
+                            )
+                        // Server is probably unreachable — stop trying other players too
+                        break
                     }
 
                     TransferAction.SERVER_FULL -> break
@@ -173,22 +192,38 @@ class RedisQueueTransferProcessor(
             .log("Player %s removed from queue %s (offline > %dms)", uuid, serverName, gracePeriodMs)
     }
 
+    /**
+     * Moves a queue entry behind the next entry in the sorted set so that
+     * the transfer loop can proceed to other players.
+     *
+     * If the entry is the last one in the queue (no next entry exists),
+     * we simply leave it in place and return instead of aborting the
+     * entire transfer loop.
+     */
     private suspend fun skipEntry(uuid: UUID, meta: QueueEntry) {
         val currentScore = store.getScore(uuid) ?: throw AbortException()
         val nextEntries = store.entriesAfter(uuid, limit = 1)
-        if (nextEntries.isEmpty()) throw AbortException()
+        if (nextEntries.isEmpty()) {
+            // This entry is the last in the queue — nothing to skip past.
+            // Just leave it in place. Throwing AbortException here would abort the
+            // entire transfer loop which is not desired for a single-entry queue.
+            return
+        }
 
         val nextScoreRaw = nextEntries.first().score
         val nextScore = RedisQueueScorePacker.unpack(nextScoreRaw)
 
         var nextSequence = nextScore.sequence + 1
         if (nextSequence > RedisQueueScorePacker.MAX_SEQUENCE) {
-            nextSequence = nextScore.sequence
+            // Sequence overflow: increment deltaMs by 1 to guarantee the new score
+            // is strictly greater than the next entry's score, even though the
+            // sequence wraps back to 0.
+            nextSequence = 0
         }
 
         val newScore = RedisQueueScorePacker.pack(
             meta.priority,
-            if (nextSequence == nextScore.sequence) nextScore.deltaMs + 1 else nextScore.deltaMs,
+            if (nextSequence == 0) nextScore.deltaMs + 1 else nextScore.deltaMs,
             nextSequence
         )
 
