@@ -134,7 +134,7 @@ class RedisQueueTransferProcessor(
                                 uuid,
                                 serverName
                             )
-                        // Server is probably unreachable — stop trying other players too
+                        // Transfer timed out — stop trying other players to avoid blocking the queue
                         break
                     }
 
@@ -213,17 +213,15 @@ class RedisQueueTransferProcessor(
         val nextScoreRaw = nextEntries.first().score
         val nextScore = RedisQueueScorePacker.unpack(nextScoreRaw)
 
-        var nextSequence = nextScore.sequence + 1
-        if (nextSequence > RedisQueueScorePacker.MAX_SEQUENCE) {
-            // Sequence overflow: increment deltaMs by 1 to guarantee the new score
-            // is strictly greater than the next entry's score, even though the
-            // sequence wraps back to 0.
-            nextSequence = 0
-        }
+        val sequenceOverflow = nextScore.sequence >= RedisQueueScorePacker.MAX_SEQUENCE
+        val nextSequence = if (sequenceOverflow) 0 else nextScore.sequence + 1
+        // On overflow, also bump deltaMs so the new score is strictly greater
+        // than the entry we are skipping past.
+        val nextDeltaMs = if (sequenceOverflow) nextScore.deltaMs + 1 else nextScore.deltaMs
 
         val newScore = RedisQueueScorePacker.pack(
             meta.priority,
-            if (nextSequence == 0) nextScore.deltaMs + 1 else nextScore.deltaMs,
+            nextDeltaMs,
             nextSequence
         )
 

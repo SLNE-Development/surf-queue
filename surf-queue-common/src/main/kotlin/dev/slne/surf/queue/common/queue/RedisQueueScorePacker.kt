@@ -8,8 +8,8 @@ object RedisQueueScorePacker {
     private const val DELTA_MS_SHIFT = SEQUENCE_BITS
     private const val PRIORITY_SHIFT = DELTA_MS_BITS + SEQUENCE_BITS
 
-    private const val SEQUENCE_MASK = (1L shl SEQUENCE_BITS) - 1   // 0xFF
-    private const val DELTA_MS_MASK = (1L shl DELTA_MS_BITS) - 1   // 0x3FFFFFFFFF
+    private const val SEQUENCE_MASK = (1L shl SEQUENCE_BITS) - 1   // 0xFF (255)
+    private const val DELTA_MS_MASK = (1L shl DELTA_MS_BITS) - 1   // 0x3FFFFFFFFF (274,877,906,943)
     private const val PRIORITY_MASK = (1L shl PRIORITY_BITS) - 1   // 0x7F
 
     const val MAX_PRIORITY = PRIORITY_MASK.toInt()
