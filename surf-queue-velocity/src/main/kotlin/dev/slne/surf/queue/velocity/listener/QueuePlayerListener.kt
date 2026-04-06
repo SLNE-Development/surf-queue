@@ -1,11 +1,9 @@
 package dev.slne.surf.queue.velocity.listener
 
-import com.github.shynixn.mccoroutine.velocity.launch
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.DisconnectEvent
 import com.velocitypowered.api.event.connection.PostLoginEvent
 import dev.slne.surf.queue.common.queue.RedisQueueService
-import dev.slne.surf.queue.velocity.plugin
 import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.coroutineScope
@@ -15,9 +13,9 @@ object QueuePlayerListener {
     private val log = logger()
 
     @Subscribe
-    fun onPostLogin(event: PostLoginEvent) {
+    suspend fun onPostLogin(event: PostLoginEvent) {
         val uuid = event.player.uniqueId
-        plugin.container.launch {
+        coroutineScope {
             for (queue in RedisQueueService.get().getAll()) {
                 require(queue is VelocitySurfQueue) { "Queue must be VelocitySurfQueue" }
                 launch {
@@ -31,6 +29,7 @@ object QueuePlayerListener {
                 }
             }
         }
+
     }
 
     @Subscribe
@@ -41,9 +40,7 @@ object QueuePlayerListener {
                 require(queue is VelocitySurfQueue)
                 launch {
                     try {
-                        if (queue.isQueued(uuid)) {
-                            queue.markPlayerDisconnected(uuid)
-                        }
+                        queue.markPlayerDisconnected(uuid)
                     } catch (e: Exception) {
                         log.atWarning()
                             .withCause(e)

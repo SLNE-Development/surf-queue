@@ -1,11 +1,16 @@
 package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.queue.common.redis.redisApi
+import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.future.await
 
 class RedisQueueLockManager(private val keys: RedisQueueKeys) {
     private val transferLock = redisApi.redisson.getLock(keys.transferLockKey)
     private val cleanupLock = redisApi.redisson.getLock(keys.cleanupLockKey)
+
+    companion object {
+        private val log = logger()
+    }
 
     suspend fun <T> withTransferLock(
         block: suspend (acquired: Boolean) -> T
@@ -17,7 +22,13 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         try {
             return block(true)
         } finally {
-            transferLock.unlockAsync(threadId).await()
+            try {
+                transferLock.unlockAsync(threadId).await()
+            } catch (e: Exception) {
+                log.atWarning()
+                    .withCause(e)
+                    .log("Failed to release transfer lock for %s", keys.serverName)
+            }
         }
     }
 
@@ -29,7 +40,13 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         try {
             block()
         } finally {
-            cleanupLock.unlockAsync(threadId).await()
+            try {
+                cleanupLock.unlockAsync(threadId).await()
+            } catch (e: Exception) {
+                log.atWarning()
+                    .withCause(e)
+                    .log("Failed to release cleanup lock for %s", keys.serverName)
+            }
         }
     }
 }

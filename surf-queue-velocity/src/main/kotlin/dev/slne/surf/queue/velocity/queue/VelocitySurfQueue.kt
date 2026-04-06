@@ -7,6 +7,7 @@ import dev.slne.surf.surfapi.core.api.util.logger
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.minutes
 
 class VelocitySurfQueue(serverName: String) : AbstractSurfQueue(serverName) {
@@ -55,6 +56,7 @@ class VelocitySurfQueue(serverName: String) : AbstractSurfQueue(serverName) {
         try {
             block()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             log.atWarning()
                 .withCause(e)
                 .log("Failed to tick %s for queue %s", component, serverName)

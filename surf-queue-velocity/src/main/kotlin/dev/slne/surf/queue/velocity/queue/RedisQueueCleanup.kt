@@ -14,10 +14,11 @@ class RedisQueueCleanup(
 
     companion object {
         private val log = logger()
+        private const val CLEANUP_INTERVAL_TICKS = 10L
     }
 
     suspend fun tick() {
-        if (queue.getTickCount() % 30 == 0L) {
+        if (queue.getTickCount() % CLEANUP_INTERVAL_TICKS == 0L) {
             lockManager.withCleanupLock {
                 cleanupExpiredEntries()
             }
@@ -37,9 +38,19 @@ class RedisQueueCleanup(
                         removals++
                         log.atInfo()
                             .log("Cleanup: removed expired entry %s from queue %s", uuid, queue.serverName)
-                    } catch (_: Exception) {
-                        store.removeAllFor(uuid)
-                        removals++
+                    } catch (e: Exception) {
+                        log.atWarning()
+                            .withCause(e)
+                            .log("Cleanup: dequeue failed for %s in queue %s, attempting forced removal", uuid, queue.serverName)
+
+                        try {
+                            store.removeAllFor(uuid)
+                            removals++
+                        } catch (e2: Exception) {
+                            log.atWarning()
+                                .withCause(e2)
+                                .log("Cleanup: forced removal also failed for %s in queue %s", uuid, queue.serverName)
+                        }
                     }
                 }
             }

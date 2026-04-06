@@ -117,7 +117,18 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
             .removeAsync(uuid)
 
         batch.executeAsync().await()
-        return removeAsync.await()
+        try {
+            batch.executeAsync().await()
+            return removeAsync.await()
+        } catch (e: Exception) {
+            // If the batch fails, we need to remove the individual elements manually
+            runCatching { scoredSet.removeAsync(uuid).await() }
+            runCatching { metaMap.removeAsync(uuid).await() }
+            runCatching { lastSeenMap.removeAsync(uuid).await() }
+            runCatching { retryCountMap.removeAsync(uuid).await() }
+
+            throw e
+        }
     }
 
     suspend fun deleteAll() {

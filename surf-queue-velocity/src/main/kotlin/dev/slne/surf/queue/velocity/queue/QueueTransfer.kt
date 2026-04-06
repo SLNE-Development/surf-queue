@@ -1,5 +1,6 @@
 package dev.slne.surf.queue.velocity.queue
 
+import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.player.SurfPlayer
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
@@ -26,7 +27,7 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
 
         return processor.processTransfers(availableSlots) { entry ->
             try {
-                val corePlayer = surfCoreApi.getPlayer(entry.uuid)
+                val corePlayer = SurfCoreApi.getPlayer(entry.uuid)
                 if (corePlayer == null) {
                     TransferAction.PLAYER_NOT_FOUND
                 } else {
@@ -57,7 +58,7 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
     ): TransferAction {
         val (status, message) = try {
             withTimeout(30.seconds) {
-                surfCoreApi.sendPlayerAwaiting(player, targetServer)
+                SurfCoreApi.sendPlayerAwaiting(player, targetServer)
             }
         } catch (e: TimeoutCancellationException) {
             log.atWarning()

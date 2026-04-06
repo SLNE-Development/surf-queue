@@ -15,7 +15,7 @@ data class RedisQueueKeys(
     val epochMsKey = "$QUEUE_PREFIX$serverName$EPOCH_MS_SUFFIX"
 
     companion object {
-        val QUEUE_PREFIX = RedisInstance.namespaced("queue:")
+        val QUEUE_PREFIX = RedisInstance.namespaced("queue:v2:")
         val EPOCH_MS_KEY_PATTERN = "$QUEUE_PREFIX*$EPOCH_MS_SUFFIX"
         const val EPOCH_MS_SUFFIX = ":epoch-ms"
     }

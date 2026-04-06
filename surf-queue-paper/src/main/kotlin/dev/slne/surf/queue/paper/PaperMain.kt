@@ -2,6 +2,7 @@ package dev.slne.surf.queue.paper
 
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import dev.slne.surf.queue.common.SurfQueueInstance
+import dev.slne.surf.surfapi.core.api.component.surfComponentApi
 import org.bukkit.plugin.java.JavaPlugin
 
 class PaperMain : SuspendingJavaPlugin() {
