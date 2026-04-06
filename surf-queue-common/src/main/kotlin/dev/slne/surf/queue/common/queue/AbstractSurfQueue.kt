@@ -13,6 +13,14 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
     protected val lockManager = RedisQueueLockManager(keys)
     protected val epochMs = store.initEpochMs()
 
+    /**
+     * Monotonically increasing sequence counter used to break ties when
+     * multiple players enqueue within the same millisecond. Wraps around
+     * at MAX_SEQUENCE; by the time it wraps, the millisecond will have
+     * advanced so no collision occurs.
+     */
+    private val enqueueSequence = java.util.concurrent.atomic.AtomicInteger(0)
+
     companion object {
         private val log = logger()
 
@@ -41,12 +49,15 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
     override suspend fun enqueue(uuid: UUID, priority: Int): Boolean {
         val priorityFixed = fixPriority(uuid, priority)
         val now = Instant.now().toEpochMilli()
+        val sequence = enqueueSequence.getAndUpdate { current ->
+            if (current >= RedisQueueScorePacker.MAX_SEQUENCE.toInt()) 0 else current + 1
+        }
 
         val score = RedisQueueScorePacker.pack(
             priorityFixed,
             now - epochMs,
-            0
-        ) // TODO: set sequence if it happens to enqueue multiple times in the same ms
+            sequence
+        )
 
 
         val meta = QueueEntry(uuid, now, priorityFixed)

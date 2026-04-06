@@ -2,14 +2,14 @@ package dev.slne.surf.queue.common.queue
 
 object RedisQueueScorePacker {
     private const val PRIORITY_BITS = 7
-    private const val DELTA_MS_BITS = 42
-    private const val SEQUENCE_BITS = 4
+    private const val DELTA_MS_BITS = 38
+    private const val SEQUENCE_BITS = 8
 
     private const val DELTA_MS_SHIFT = SEQUENCE_BITS
     private const val PRIORITY_SHIFT = DELTA_MS_BITS + SEQUENCE_BITS
 
-    private const val SEQUENCE_MASK = (1L shl SEQUENCE_BITS) - 1   // 0xF
-    private const val DELTA_MS_MASK = (1L shl DELTA_MS_BITS) - 1   // 0x3FFFFFFFFFF
+    private const val SEQUENCE_MASK = (1L shl SEQUENCE_BITS) - 1   // 0xFF
+    private const val DELTA_MS_MASK = (1L shl DELTA_MS_BITS) - 1   // 0x3FFFFFFFFF
     private const val PRIORITY_MASK = (1L shl PRIORITY_BITS) - 1   // 0x7F
 
     const val MAX_PRIORITY = PRIORITY_MASK.toInt()
