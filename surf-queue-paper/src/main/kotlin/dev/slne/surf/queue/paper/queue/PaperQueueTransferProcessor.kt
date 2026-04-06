@@ -1,10 +1,9 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.paper.queue
 
 import dev.slne.surf.queue.common.queue.QueueEntry
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueScorePacker
 import dev.slne.surf.queue.common.queue.RedisQueueStore
-import dev.slne.surf.queue.velocity.metrics.QueueMetrics
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
 import dev.slne.surf.surfapi.core.api.util.logger
@@ -12,13 +11,13 @@ import java.time.Duration
 import java.time.Instant
 import java.util.*
 
-class RedisQueueTransferProcessor(
+class PaperQueueTransferProcessor(
     private val serverName: String,
     private val store: RedisQueueStore,
     private val lockManager: RedisQueueLockManager,
     private val gracePeriodMs: Long
 ) {
-    private val transfer = QueueTransfer(this, serverName)
+    private val transfer = PaperQueueTransfer(this, serverName)
     private var delay = createDelay()
     private var attempts: Int = 0
     private var nextTransferTime = System.currentTimeMillis()
@@ -33,8 +32,6 @@ class RedisQueueTransferProcessor(
         if (store.isPaused()) return
 
         try {
-            // Exponential backoff: decrease CPU usage and Redis commands when the
-            // queue is empty or the target server is full.
             if (System.currentTimeMillis() < nextTransferTime) return
 
             val transferred = transfer.tryTransfer()
@@ -60,7 +57,6 @@ class RedisQueueTransferProcessor(
         tryTransfer: suspend (QueueEntry) -> TransferAction
     ): Int {
         return lockManager.withTransferLock { acquired ->
-            QueueMetrics.recordLockAttempt(acquired)
             if (acquired) {
                 doProcessTransfers(maxTransfers, tryTransfer)
             } else {
@@ -89,7 +85,6 @@ class RedisQueueTransferProcessor(
                     TransferAction.DONE -> {
                         store.dequeue(uuid)
                         transferred++
-                        QueueMetrics.recordTransfer(serverName)
                         log.atInfo()
                             .log("Transferred %s to %s", uuid, serverName)
                     }
@@ -101,33 +96,24 @@ class RedisQueueTransferProcessor(
 
                     TransferAction.PLAYER_ALREADY_ON_SERVER -> {
                         store.dequeue(uuid)
-                        QueueMetrics.recordDequeue(serverName)
                         log.atInfo().log("Player %s is already on server %s", uuid, serverName)
                     }
 
                     TransferAction.PLAYER_KICKED_FROM_SERVER -> {
-                        QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 5)
                     }
 
                     TransferAction.PLAYER_ALREADY_CONNECTING -> {
-                        QueueMetrics.recordSkip(serverName)
                         skipEntry(uuid, entry)
                     }
 
                     TransferAction.PLUGIN_CANCELLED_TRANSFER,
                     TransferAction.ERROR -> {
-                        QueueMetrics.recordFailedTransfer(serverName)
                         retryEntry(uuid, entry, maxRetries = 3)
                     }
 
                     TransferAction.TIMEOUT -> {
-                        // Timeout means the target server is likely unreachable.
-                        // Dequeue immediately instead of retrying with another 30 s timeout
-                        // to avoid blocking the entire queue for extended periods.
                         store.dequeue(uuid)
-                        QueueMetrics.recordFailedTransfer(serverName)
-                        QueueMetrics.recordDequeue(serverName)
                         log.atWarning()
                             .log(
                                 "Player %s removed from queue %s due to transfer timeout",
@@ -152,8 +138,6 @@ class RedisQueueTransferProcessor(
         val retryCount = store.incrementRetryCount(uuid)
         if (retryCount >= maxRetries) {
             store.dequeue(uuid)
-            QueueMetrics.recordRetryExhausted()
-            QueueMetrics.recordDequeue(serverName)
             log.atWarning()
                 .log("Player %s removed from queue %s after %d failed transfer attempts", uuid, serverName, retryCount)
         } else {
@@ -185,8 +169,6 @@ class RedisQueueTransferProcessor(
         }
 
         store.dequeue(uuid)
-        QueueMetrics.recordGraceExpiry()
-        QueueMetrics.recordDequeue(serverName)
         log.atInfo()
             .log("Player %s removed from queue %s (offline > %dms)", uuid, serverName, gracePeriodMs)
     }
@@ -203,7 +185,6 @@ class RedisQueueTransferProcessor(
         val currentScore = store.getScore(uuid) ?: throw AbortException()
         val nextEntries = store.entriesAfter(uuid, limit = 1)
         if (nextEntries.isEmpty()) {
-            // This entry is the last in the queue — nothing to skip past.
             return
         }
 
@@ -212,8 +193,6 @@ class RedisQueueTransferProcessor(
 
         val sequenceOverflow = nextScore.sequence >= RedisQueueScorePacker.MAX_SEQUENCE
         val nextSequence = if (sequenceOverflow) 0 else nextScore.sequence + 1
-        // On overflow, also bump deltaMs so the new score is strictly greater
-        // than the entry we are skipping past.
         val nextDeltaMs = if (sequenceOverflow) nextScore.deltaMs + 1 else nextScore.deltaMs
 
         val newScore = RedisQueueScorePacker.pack(

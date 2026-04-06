@@ -7,7 +7,6 @@ import dev.slne.surf.queue.velocity.command.queueCommand
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
 import dev.slne.surf.queue.velocity.metrics.QueueBstatsIntegration
 import dev.slne.surf.queue.velocity.metrics.QueueMetricsLogger
-import dev.slne.surf.queue.velocity.queue.QueueTickTask
 import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.surfapi.core.api.util.logger
 
@@ -19,7 +18,6 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
         super.enable()
 
         plugin.proxy.eventManager.register(plugin, QueuePlayerListener)
-        QueueTickTask.startTransferring()
         queueCommand()
 
         try {
@@ -33,7 +31,6 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
 
     override suspend fun disable() {
         QueueMetricsLogger.stop()
-        QueueTickTask.shutdown()
 
         super.disable()
     }

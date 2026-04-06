@@ -1,7 +1,6 @@
 package dev.slne.surf.queue.velocity.command.test
 
 import dev.jorel.commandapi.CommandTree
-import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.slne.surf.core.api.common.player.SurfPlayer
@@ -9,7 +8,6 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.velocity.command.argument.surfBackendServerArgument
 import dev.slne.surf.core.api.velocity.command.argument.surfPlayerArgument
 import dev.slne.surf.queue.common.queue.RedisQueueService
-import dev.slne.surf.queue.velocity.queue.QueueTickTask
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 import dev.slne.surf.surfapi.velocity.api.command.executors.anyExecutorSuspend
 
@@ -34,42 +32,5 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
                 }
             }
         }
-    }
-
-    literalArgument("tickQueues") {
-        anyExecutorSuspend { sender, args ->
-            QueueTickTask.tick()
-            sender.sendText {
-                appendSuccessPrefix()
-                success("Ticked queues")
-            }
-        }
-    }
-
-    literalArgument("transferTask") {
-        literalArgument("start") {
-            anyExecutorSuspend { source, arguments ->
-                QueueTickTask.shutdown()
-                QueueTickTask.startTransferring()
-                source.sendText {
-                    appendSuccessPrefix()
-                    success("Started transfer task")
-                }
-            }
-        }
-
-        literalArgument("stop") {
-            anyExecutorSuspend { source, arguments ->
-                QueueTickTask.shutdown()
-                source.sendText {
-                    appendSuccessPrefix()
-                    success("Stopped transfer task")
-                }
-            }
-        }
-    }
-
-    literalArgument("test-display") {
-
     }
 }

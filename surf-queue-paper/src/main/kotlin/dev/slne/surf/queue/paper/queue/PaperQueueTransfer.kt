@@ -1,4 +1,4 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.paper.queue
 
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.player.SurfPlayer
@@ -8,22 +8,23 @@ import dev.slne.surf.core.api.common.surfCoreApi
 import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import org.bukkit.Bukkit
 import kotlin.time.Duration.Companion.seconds
 
-class QueueTransfer(private val processor: RedisQueueTransferProcessor, private val serverName: String) {
+class PaperQueueTransfer(
+    private val processor: PaperQueueTransferProcessor,
+    private val serverName: String
+) {
 
     companion object {
         private val log = logger()
     }
 
     suspend fun tryTransfer(): Int {
-        val coreServer = surfCoreApi.getServerByName(serverName) ?: return 0
-
-        val playerCount = coreServer.getPlayerCount()
-        val maxPlayers = coreServer.maxPlayers
-        val availableSlots = maxPlayers - playerCount
-
+        val availableSlots = Bukkit.getMaxPlayers() - Bukkit.getOnlinePlayers().size
         if (availableSlots <= 0) return 0
+
+        val coreServer = surfCoreApi.getServerByName(serverName) ?: return 0
 
         return processor.processTransfers(availableSlots) { entry ->
             try {
@@ -34,7 +35,7 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
                     val currentPlayerServer = corePlayer.currentServer
                     val currentPlayerServerName = currentPlayerServer?.name
 
-                    if (currentPlayerServer == null) { // Probably transferring to another proxy
+                    if (currentPlayerServer == null) {
                         TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER
                     } else if (currentPlayerServerName == serverName) {
                         TransferAction.PLAYER_ALREADY_ON_SERVER
@@ -73,7 +74,7 @@ class QueueTransfer(private val processor: RedisQueueTransferProcessor, private 
             SurfServerConnectResult.Status.CONNECTION_CANCELLED -> TransferAction.PLUGIN_CANCELLED_TRANSFER
             SurfServerConnectResult.Status.CONNECTION_IN_PROGRESS -> TransferAction.PLAYER_ALREADY_CONNECTING
             SurfServerConnectResult.Status.SERVER_DISCONNECTED -> {
-                if (targetServer.maxPlayers <= targetServer.getPlayerCount()) {
+                if (Bukkit.getMaxPlayers() <= Bukkit.getOnlinePlayers().size) {
                     TransferAction.SERVER_FULL
                 } else {
                     TransferAction.PLAYER_KICKED_FROM_SERVER

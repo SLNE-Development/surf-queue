@@ -2,7 +2,6 @@ package dev.slne.surf.queue.velocity.metrics
 
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.velocity.plugin
-import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.surfapi.core.api.util.logger
 import dev.slne.surf.surfapi.velocity.api.metrics.Metrics
 import kotlinx.coroutines.runBlocking
@@ -57,7 +56,6 @@ object QueueBstatsIntegration {
         metrics.addCustomChart(Metrics.AdvancedPie("transfers_per_queue") {
             try {
                 RedisQueueService.get().getAll()
-                    .filterIsInstance<VelocitySurfQueue>()
                     .associate { it.serverName to QueueMetrics.getTransfersFor(it.serverName).toInt() }
                     .filterValues { it > 0 }
             } catch (_: Exception) {

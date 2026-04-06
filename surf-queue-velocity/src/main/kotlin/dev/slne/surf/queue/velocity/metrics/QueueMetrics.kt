@@ -1,7 +1,6 @@
 package dev.slne.surf.queue.velocity.metrics
 
 import dev.slne.surf.queue.common.queue.RedisQueueService
-import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.surfapi.core.api.util.logger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -114,7 +113,6 @@ object QueueMetrics {
     suspend fun collectQueueSizes(): Map<String, Int> {
         return try {
             RedisQueueService.get().getAll()
-                .filterIsInstance<VelocitySurfQueue>()
                 .associate { it.serverName to it.size() }
         } catch (e: Exception) {
             log.atWarning()

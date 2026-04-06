@@ -1,13 +1,12 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.paper.queue
 
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueStore
-import dev.slne.surf.queue.velocity.metrics.QueueMetrics
 import dev.slne.surf.surfapi.core.api.util.logger
 import java.time.Instant
 
-class RedisQueueCleanup(
-    private val queue: VelocitySurfQueue,
+class PaperQueueCleanup(
+    private val queue: PaperSurfQueue,
     private val store: RedisQueueStore,
     private val lockManager: RedisQueueLockManager
 ) {
@@ -32,7 +31,7 @@ class RedisQueueCleanup(
 
         try {
             for ((uuid, lastSeenTime) in allLastSeen) {
-                if (now - lastSeenTime >= VelocitySurfQueue.GRACE_PERIOD_MS) {
+                if (now - lastSeenTime >= PaperSurfQueue.GRACE_PERIOD_MS) {
                     try {
                         queue.dequeue(uuid)
                         removals++
@@ -60,6 +59,8 @@ class RedisQueueCleanup(
                 .log("Failed to cleanup expired entries for queue %s", queue.serverName)
         }
 
-        QueueMetrics.recordCleanupCycle(removals)
+        if (removals > 0) {
+            log.atInfo().log("Cleanup: removed %d expired entries from queue %s", removals, queue.serverName)
+        }
     }
 }
