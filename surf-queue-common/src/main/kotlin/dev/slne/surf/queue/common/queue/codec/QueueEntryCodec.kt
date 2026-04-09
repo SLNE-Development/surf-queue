@@ -8,9 +8,19 @@ import dev.slne.surf.redis.shaded.io.netty.buffer.Unpooled
 import java.util.*
 
 class QueueEntryCodec : BaseCodec() {
+    companion object {
+        // @formatter:off
+        private const val BUFFER_SIZE = (
+                  (Long.SIZE_BYTES * 2) // uuid
+                + (Long.SIZE_BYTES) // addedAt
+                + (Int.SIZE_BYTES) // priority
+        )
+        // @formatter:on
+    }
+
     private val encoder = Encoder { obj ->
         val entry = obj as QueueEntry
-        val buf = Unpooled.buffer()
+        val buf = Unpooled.buffer(BUFFER_SIZE, BUFFER_SIZE)
 
         try {
             buf.writeLong(entry.uuid.mostSignificantBits)
