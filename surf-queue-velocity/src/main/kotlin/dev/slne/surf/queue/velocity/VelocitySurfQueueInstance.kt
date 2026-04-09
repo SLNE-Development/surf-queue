@@ -19,7 +19,7 @@ class VelocitySurfQueueInstance : SurfQueueInstance() {
         super.enable()
 
         plugin.proxy.eventManager.register(plugin, QueuePlayerListener)
-        QueueTickTask.startTransferring()
+        QueueTickTask.startTicking()
         queueCommand()
 
         try {

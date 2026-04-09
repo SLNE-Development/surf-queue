@@ -1,7 +1,6 @@
 package dev.slne.surf.queue.velocity.command.test
 
 import dev.jorel.commandapi.CommandTree
-import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.slne.surf.core.api.common.player.SurfPlayer
@@ -50,7 +49,7 @@ fun CommandTree.testQueueCommands() = literalArgument("test-queue") {
         literalArgument("start") {
             anyExecutorSuspend { source, arguments ->
                 QueueTickTask.shutdown()
-                QueueTickTask.startTransferring()
+                QueueTickTask.startTicking()
                 source.sendText {
                     appendSuccessPrefix()
                     success("Started transfer task")

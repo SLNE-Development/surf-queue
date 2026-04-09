@@ -1,4 +1,4 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.paper.queue
 
 enum class TransferAction {
     DONE,

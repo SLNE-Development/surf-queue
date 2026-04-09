@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.api
 
+import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.server.SurfServer
-import dev.slne.surf.core.api.common.surfCoreApi
 import dev.slne.surf.queue.api.service.SurfQueueService
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import java.util.*
@@ -9,7 +9,7 @@ import java.util.*
 interface SurfQueue {
     val serverName: String
 
-    fun server() = surfCoreApi.getServerByName(serverName)
+    fun server() = SurfCoreApi.getServerByName(serverName)
 
     suspend fun enqueue(uuid: UUID): Boolean
     suspend fun enqueue(uuid: UUID, priority: Int): Boolean

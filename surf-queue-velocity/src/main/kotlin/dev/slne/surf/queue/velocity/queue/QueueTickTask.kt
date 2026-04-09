@@ -14,7 +14,7 @@ object QueueTickTask {
 
     private var lastFetch = 0L
 
-    fun startTransferring() {
+    fun startTicking() {
         job = plugin.container.launch {
             while (isActive) {
                 delay(1.seconds)

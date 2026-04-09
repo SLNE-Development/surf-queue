@@ -1,24 +1,27 @@
-package dev.slne.surf.queue.velocity.queue
+package dev.slne.surf.queue.paper.queue
 
+import dev.slne.surf.core.api.common.SurfCoreApi
+import dev.slne.surf.core.api.common.util.sendText
 import dev.slne.surf.queue.common.queue.QueueEntry
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
-import dev.slne.surf.queue.common.queue.RedisQueueScorePacker
+import dev.slne.surf.queue.common.queue.RedisQueueScore
 import dev.slne.surf.queue.common.queue.RedisQueueStore
-import dev.slne.surf.queue.velocity.metrics.QueueMetrics
+import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
 import dev.slne.surf.surfapi.core.api.util.logger
+import net.kyori.adventure.text.Component
 import java.time.Duration
 import java.time.Instant
 import java.util.*
 
-class RedisQueueTransferProcessor(
+class PaperQueueTransferProcessor(
     private val serverName: String,
     private val store: RedisQueueStore,
     private val lockManager: RedisQueueLockManager,
     private val gracePeriodMs: Long
 ) {
-    private val transfer = QueueTransfer(this, serverName)
+    private val transfer = PaperQueueTransfer(this, serverName)
     private var delay = createDelay()
     private var attempts: Int = 0
     private var nextTransferTime = System.currentTimeMillis()
@@ -57,7 +60,7 @@ class RedisQueueTransferProcessor(
 
     suspend fun processTransfers(
         maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> TransferAction
+        tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>
     ): Int {
         return lockManager.withTransferLock { acquired ->
             QueueMetrics.recordLockAttempt(acquired)
@@ -71,7 +74,7 @@ class RedisQueueTransferProcessor(
 
     private suspend fun doProcessTransfers(
         maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> TransferAction
+        tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>
     ): Int {
         var transferred = 0
 
@@ -85,7 +88,8 @@ class RedisQueueTransferProcessor(
             }
 
             try {
-                when (val result = tryTransfer(entry)) {
+                val (action, message) = tryTransfer(entry)
+                when (action) {
                     TransferAction.DONE -> {
                         store.dequeue(uuid)
                         transferred++
@@ -107,7 +111,9 @@ class RedisQueueTransferProcessor(
 
                     TransferAction.PLAYER_KICKED_FROM_SERVER -> {
                         QueueMetrics.recordFailedTransfer(serverName)
-                        retryEntry(uuid, entry, maxRetries = 5)
+                        retryEntry(uuid, entry, maxRetries = 5) {
+                            sendConnectionResultMessage(entry.uuid, message)
+                        }
                     }
 
                     TransferAction.PLAYER_ALREADY_CONNECTING -> {
@@ -118,7 +124,9 @@ class RedisQueueTransferProcessor(
                     TransferAction.PLUGIN_CANCELLED_TRANSFER,
                     TransferAction.ERROR -> {
                         QueueMetrics.recordFailedTransfer(serverName)
-                        retryEntry(uuid, entry, maxRetries = 3)
+                        retryEntry(uuid, entry, maxRetries = 3) {
+                            sendConnectionResultMessage(entry.uuid, message)
+                        }
                     }
 
                     TransferAction.TIMEOUT -> {
@@ -128,6 +136,7 @@ class RedisQueueTransferProcessor(
                         store.dequeue(uuid)
                         QueueMetrics.recordFailedTransfer(serverName)
                         QueueMetrics.recordDequeue(serverName)
+                        sendConnectionResultMessage(entry.uuid, message)
                         log.atWarning()
                             .log(
                                 "Player %s removed from queue %s due to transfer timeout",
@@ -148,12 +157,13 @@ class RedisQueueTransferProcessor(
         return transferred
     }
 
-    private suspend fun retryEntry(uuid: UUID, meta: QueueEntry, maxRetries: Int) {
+    private suspend fun retryEntry(uuid: UUID, meta: QueueEntry, maxRetries: Int, onMaxRetriesReached: () -> Unit) {
         val retryCount = store.incrementRetryCount(uuid)
         if (retryCount >= maxRetries) {
             store.dequeue(uuid)
             QueueMetrics.recordRetryExhausted()
             QueueMetrics.recordDequeue(serverName)
+            onMaxRetriesReached()
             log.atWarning()
                 .log("Player %s removed from queue %s after %d failed transfer attempts", uuid, serverName, retryCount)
         } else {
@@ -208,21 +218,34 @@ class RedisQueueTransferProcessor(
         }
 
         val nextScoreRaw = nextEntries.first().score
-        val nextScore = RedisQueueScorePacker.unpack(nextScoreRaw)
+        val nextScore = RedisQueueScore(nextScoreRaw)
 
-        val sequenceOverflow = nextScore.sequence >= RedisQueueScorePacker.MAX_SEQUENCE
+        val sequenceOverflow = nextScore.sequence >= RedisQueueScore.MAX_SEQUENCE
         val nextSequence = if (sequenceOverflow) 0 else nextScore.sequence + 1
         // On overflow, also bump deltaMs so the new score is strictly greater
         // than the entry we are skipping past.
         val nextDeltaMs = if (sequenceOverflow) nextScore.deltaMs + 1 else nextScore.deltaMs
 
-        val newScore = RedisQueueScorePacker.pack(
+        val newScore = RedisQueueScore.pack(
             meta.priority,
             nextDeltaMs,
             nextSequence
         )
 
         store.addOrUpdateScore(uuid, newScore)
+    }
+
+    private fun sendConnectionResultMessage(uuid: UUID, message: Component?) {
+        try {
+            if (message != null) {
+                val player = SurfCoreApi.getPlayer(uuid) ?: return
+                player.sendText { append(message) }
+            }
+        } catch (e: Exception) {
+            log.atWarning()
+                .withCause(e)
+                .log("Failed to send connection result message for player %s", uuid)
+        }
     }
 
     private class AbortException : Exception()

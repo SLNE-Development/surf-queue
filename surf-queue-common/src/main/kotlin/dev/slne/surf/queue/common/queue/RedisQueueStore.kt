@@ -4,6 +4,8 @@ import dev.slne.surf.queue.common.queue.codec.QueueEntryCodec
 import dev.slne.surf.queue.common.redis.redisApi
 import dev.slne.surf.redis.codec.UUIDCodec
 import dev.slne.surf.redis.libs.redisson.api.BatchOptions
+import dev.slne.surf.redis.libs.redisson.api.BatchResult
+import dev.slne.surf.redis.libs.redisson.api.RBatch
 import dev.slne.surf.redis.libs.redisson.client.codec.IntegerCodec
 import dev.slne.surf.redis.libs.redisson.client.codec.LongCodec
 import dev.slne.surf.redis.libs.redisson.client.protocol.ScoredEntry
@@ -13,7 +15,7 @@ import org.jetbrains.annotations.Blocking
 import java.time.Instant
 import java.util.*
 
-class RedisQueueStore(private val keys: RedisQueueKeys) {
+class RedisQueueStore(keys: RedisQueueKeys) {
     private val scoredSet = redisApi.redisson.getScoredSortedSet<UUID>(keys.entriesKey, UUIDCodec.INSTANCE)
     private val metaMap = redisApi.redisson.getMap<UUID, QueueEntry>(
         keys.metaKey,
@@ -32,12 +34,26 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
     private val epochMsBucket = redisApi.redisson.getBucket<Long>(keys.epochMsKey, LongCodec.INSTANCE)
     private val pausedBucket = redisApi.redisson.getBucket<Int>(keys.pausedKey, IntegerCodec.INSTANCE)
 
-
     companion object {
         private fun atomicBatchOptions(): BatchOptions {
             return BatchOptions.defaults().executionMode(BatchOptions.ExecutionMode.IN_MEMORY_ATOMIC)
         }
     }
+
+    // region RBatch helper
+    private inline fun <R> createAtomicBatch(block: RBatch.() -> R) =
+        redisApi.redisson.createBatch(atomicBatchOptions()).run(block)
+
+    private suspend inline fun executeAtomicBatch(block: RBatch.() -> Unit): BatchResult<*> = createAtomicBatch {
+        block()
+        executeAsync().await()
+    }
+
+    private fun RBatch.getQueueScoredSet() = getScoredSortedSet<UUID>(scoredSet.name, scoredSet.codec)
+    private fun RBatch.getQueueMetaMap() = getMap<UUID, QueueEntry>(metaMap.name, metaMap.codec)
+    private fun RBatch.getQueueLastSeenMap() = getMap<UUID, Long>(lastSeenMap.name, lastSeenMap.codec)
+    private fun RBatch.getQueueRetryCountMap() = getMap<UUID, Int>(retryCountMap.name, retryCountMap.codec)
+    // endregion
 
     @Blocking
     fun initEpochMs(): Long {
@@ -45,25 +61,22 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
         return epochMsBucket.get()
     }
 
-    suspend fun enqueueIfAbsent(uuid: UUID, meta: QueueEntry, score: Double): Boolean {
-        val batch = redisApi.redisson.createBatch(atomicBatchOptions())
+    suspend fun enqueueIfAbsent(uuid: UUID, meta: QueueEntry, score: RedisQueueScore): Boolean {
+        val result = executeAtomicBatch {
+            getQueueScoredSet().addIfAbsentAsync(score.packed, uuid)
+            getQueueMetaMap().fastPutIfAbsentAsync(uuid, meta)
+        }
 
-        val addAsync = batch.getScoredSortedSet<UUID>(scoredSet.name, scoredSet.codec)
-            .addIfAbsentAsync(score, uuid)
-        batch.getMap<UUID, QueueEntry>(metaMap.name, metaMap.codec)
-            .fastPutIfAbsentAsync(uuid, meta)
-
-        batch.executeAsync().await()
-        return addAsync.await()
+        return result.responses.first() as Boolean
     }
 
     suspend fun dequeue(uuid: UUID): Boolean {
-       return batchRemove(uuid)
+        return batchRemove(uuid)
     }
 
     suspend fun isQueued(uuid: UUID): Boolean = scoredSet.containsAsync(uuid).await()
     suspend fun rank(uuid: UUID): Int? = scoredSet.rankAsync(uuid).await()
-    suspend fun getScore(uuid: UUID): Double? = scoredSet.getScoreAsync(uuid).await()
+    suspend fun getScore(uuid: UUID): RedisQueueScore? = RedisQueueScore.optional(scoredSet.getScoreAsync(uuid).await())
     suspend fun size(): Int = scoredSet.sizeAsync().await()
 
     suspend fun top1(): UUID? = scoredSet.entryRangeAsync(0, 0).await().firstOrNull()?.value
@@ -71,12 +84,14 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
     suspend fun readAllEntries(): Collection<ScoredEntry<UUID>> = scoredSet.entryRangeAsync(0, -1).await()
     suspend fun entriesAfter(uuid: UUID, limit: Int): Collection<ScoredEntry<UUID>> {
         val currentScore = getScore(uuid) ?: return emptyList()
-        return scoredSet.entryRangeAsync(currentScore, false, Double.MAX_VALUE, true, 0, limit).await()
+        return scoredSet.entryRangeAsync(currentScore.packed, false, Double.MAX_VALUE, true, 0, limit).await()
     }
 
     suspend fun incrementRetryCount(uuid: UUID): Int {
         return retryCountMap.addAndGetAsync(uuid, 1).await()
     }
+
+    suspend fun getRetryCount(uuid: UUID): Int? = retryCountMap.getAsync(uuid).await()
 
     suspend fun clearRetryCount(uuid: UUID) {
         retryCountMap.removeAsync(uuid).await()
@@ -100,28 +115,22 @@ class RedisQueueStore(private val keys: RedisQueueKeys) {
 
     suspend fun readAllLastSeen(): Map<UUID, Long> = lastSeenMap.readAllMapAsync().await() ?: emptyMap()
 
-    suspend fun addOrUpdateScore(uuid: UUID, score: Double): Boolean {
-        return scoredSet.addAsync(score, uuid).await()
+    suspend fun addOrUpdateScore(uuid: UUID, score: RedisQueueScore): Boolean {
+        return scoredSet.addAsync(score.packed, uuid).await()
     }
 
     private suspend fun batchRemove(uuid: UUID): Boolean {
-        val batch = redisApi.redisson.createBatch(atomicBatchOptions())
-
-        val removeAsync = batch.getScoredSortedSet<UUID>(scoredSet.name, scoredSet.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, QueueEntry>(metaMap.name, metaMap.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, Long>(lastSeenMap.name, lastSeenMap.codec)
-            .removeAsync(uuid)
-        batch.getMap<UUID, Int>(retryCountMap.name, retryCountMap.codec)
-            .removeAsync(uuid)
-
-        batch.executeAsync().await()
         try {
-            batch.executeAsync().await()
-            return removeAsync.await()
+            val result = executeAtomicBatch {
+                getQueueScoredSet().removeAsync(uuid)
+                getQueueMetaMap().removeAsync(uuid)
+                getQueueLastSeenMap().removeAsync(uuid)
+                getQueueRetryCountMap().removeAsync(uuid)
+            }
+
+            return result.responses.first() as Boolean
         } catch (e: Exception) {
-            // If the batch fails, we need to remove the individual elements manually
+            // If the batch fails, we need try to remove the individual elements manually
             runCatching { scoredSet.removeAsync(uuid).await() }
             runCatching { metaMap.removeAsync(uuid).await() }
             runCatching { lastSeenMap.removeAsync(uuid).await() }

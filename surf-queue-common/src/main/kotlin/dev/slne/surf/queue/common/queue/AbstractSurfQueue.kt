@@ -26,7 +26,7 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
         private val log = logger()
 
         fun fixPriority(uuid: UUID, priority: Int): Int {
-            return if (priority <= RedisQueueScorePacker.MAX_PRIORITY) {
+            return if (priority <= RedisQueueScore.MAX_PRIORITY) {
                 priority
             } else {
                 log.atWarning()
@@ -34,10 +34,10 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
                         "Priority %d for %s exceeds max representable priority, capping to %d",
                         priority,
                         uuid,
-                        RedisQueueScorePacker.MAX_PRIORITY
+                        RedisQueueScore.MAX_PRIORITY
                     )
 
-                RedisQueueScorePacker.MAX_PRIORITY
+                RedisQueueScore.MAX_PRIORITY
             }
         }
     }
@@ -51,15 +51,14 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
         val priorityFixed = fixPriority(uuid, priority)
         val now = Instant.now().toEpochMilli()
         val sequence = enqueueSequence.getAndUpdate { current ->
-            if (current >= RedisQueueScorePacker.MAX_SEQUENCE.toInt()) 0 else current + 1
+            if (current >= RedisQueueScore.MAX_SEQUENCE) 0 else current + 1
         }
 
-        val score = RedisQueueScorePacker.pack(
+        val score = RedisQueueScore.pack(
             priorityFixed,
             now - epochMs,
             sequence
         )
-
 
         val meta = QueueEntry(uuid, now, priorityFixed)
         val added = store.enqueueIfAbsent(uuid, meta, score)
@@ -114,4 +113,9 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
     override suspend fun pause() {
         store.setPaused(true)
     }
+
+    suspend fun getEntryMeta(uuid: UUID): QueueEntry? = store.getMeta(uuid)
+    suspend fun getEntryScore(uuid: UUID): RedisQueueScore? = store.getScore(uuid)
+    suspend fun getEntryLastSeen(uuid: UUID): Long? = store.getLastSeen(uuid)
+    suspend fun getEntryRetryCount(uuid: UUID): Int? = store.getRetryCount(uuid)
 }

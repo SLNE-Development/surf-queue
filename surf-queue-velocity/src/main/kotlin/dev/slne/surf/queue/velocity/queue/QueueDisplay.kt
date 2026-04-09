@@ -1,10 +1,9 @@
-package dev.slne.surf.queue.velocity.queue.display
+package dev.slne.surf.queue.velocity.queue
 
-import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
 import dev.slne.surf.queue.velocity.util.toVelocityPlayer
 import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
 import it.unimi.dsi.fastutil.objects.Object2IntMap
-import java.util.*
+import java.util.UUID
 
 class QueueDisplay(private val queue: VelocitySurfQueue) {
 
@@ -26,7 +25,7 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
 
     private suspend fun updateActionBars() {
         val uuidsWithPosition = cachedUuidsWithPosition ?: return
-        val spinnerIndex = (queue.getTickCount() % spinner.size).toInt()
+        val spinnerIndex = (queue.getTickCount() % spinner.size)
         val spinnerEnd = spinner[spinnerIndex]
         val spinnerStart = spinnerReversed[spinnerIndex]
         val paused = queue.isPaused()
