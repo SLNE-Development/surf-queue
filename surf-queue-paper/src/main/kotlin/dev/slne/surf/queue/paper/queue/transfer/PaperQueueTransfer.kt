@@ -16,6 +16,16 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Performs the actual player transfer to the target server.
+ *
+ * Checks available server slots, resolves the player and server via
+ * [SurfCoreApi], and delegates the connection to [SurfCoreApi.sendPlayerAwaiting]
+ * with a 30-second timeout. Maps the connection result to a [TransferAction].
+ *
+ * @param processor the [PaperQueueTransferProcessor] that owns this transfer
+ * @param serverName the name of the target server
+ */
 class PaperQueueTransfer(
     private val processor: PaperQueueTransferProcessor,
     private val serverName: String
@@ -25,6 +35,11 @@ class PaperQueueTransfer(
         private val log = logger()
     }
 
+    /**
+     * Attempts to transfer queued players to the target server.
+     *
+     * @return the number of players successfully transferred
+     */
     suspend fun tryTransfer(): Int {
         val availableSlots = Bukkit.getMaxPlayers() - Bukkit.getOnlinePlayers().size
 

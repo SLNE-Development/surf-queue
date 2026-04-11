@@ -5,6 +5,13 @@ import dev.slne.surf.surfapi.core.api.util.logger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Thread-safe metrics collector for queue operations.
+ *
+ * Tracks global and per-queue counters for transfers, enqueues, dequeues,
+ * failures, grace expiries, retry exhaustions, lock attempts, cleanup cycles,
+ * and ticks. All counters use [AtomicLong] for lock-free thread safety.
+ */
 object QueueMetrics {
     private val log = logger()
 
@@ -26,48 +33,66 @@ object QueueMetrics {
     private val perQueueFailedTransfers = ConcurrentHashMap<String, AtomicLong>()
     private val perQueueSkips = ConcurrentHashMap<String, AtomicLong>()
 
+    /** Records a successful transfer for the given [serverName]. */
     fun recordTransfer(serverName: String) {
         totalTransfers.incrementAndGet()
         perQueueTransfers.computeIfAbsent(serverName) { AtomicLong(0) }.incrementAndGet()
     }
 
+    /** Records an enqueue event for the given [serverName]. */
     fun recordEnqueue(serverName: String) {
         totalEnqueues.incrementAndGet()
         perQueueEnqueues.computeIfAbsent(serverName) { AtomicLong(0) }.incrementAndGet()
     }
 
+    /** Records a dequeue event for the given [serverName]. */
     fun recordDequeue(serverName: String) {
         totalDequeues.incrementAndGet()
         perQueueDequeues.computeIfAbsent(serverName) { AtomicLong(0) }.incrementAndGet()
     }
 
+    /** Records a failed transfer for the given [serverName]. */
     fun recordFailedTransfer(serverName: String) {
         totalFailedTransfers.incrementAndGet()
         perQueueFailedTransfers.computeIfAbsent(serverName) { AtomicLong(0) }.incrementAndGet()
     }
 
+    /** Records a skipped entry for the given [serverName]. */
     fun recordSkip(serverName: String) {
         perQueueSkips.computeIfAbsent(serverName) { AtomicLong(0) }.incrementAndGet()
     }
 
+    /** Records that a player's grace period expired and they were removed. */
     fun recordGraceExpiry() {
         totalGraceExpiries.incrementAndGet()
     }
 
+    /** Records that a player exhausted all retry attempts. */
     fun recordRetryExhausted() {
         totalRetryExhausted.incrementAndGet()
     }
 
+    /**
+     * Records a transfer lock attempt.
+     *
+     * @param acquired whether the lock was successfully acquired
+     */
     fun recordLockAttempt(acquired: Boolean) {
         totalLockAttempts.incrementAndGet()
         if (acquired) totalLockAcquired.incrementAndGet()
     }
 
+    /**
+     * Records a completed cleanup cycle.
+     *
+     * @param removals the number of entries removed during this cycle
+     */
     fun recordCleanupCycle(removals: Int) {
         totalCleanupCycles.incrementAndGet()
         totalCleanupRemovals.addAndGet(removals.toLong())
     }
 
+    /** Records a tick event. */
     fun recordTick() {
         totalTicks.incrementAndGet()
     }
@@ -87,6 +112,9 @@ object QueueMetrics {
     fun getSkipsFor(serverName: String): Long =
         perQueueSkips[serverName]?.get() ?: 0
 
+    /**
+     * Creates an immutable [QueueMetricsSnapshot] of all current counter values.
+     */
     fun snapshot(): QueueMetricsSnapshot = QueueMetricsSnapshot(
         totalTransfers = totalTransfers.get(),
         totalEnqueues = totalEnqueues.get(),
@@ -110,6 +138,11 @@ object QueueMetrics {
         }
     )
 
+    /**
+     * Collects current queue sizes from all known queues.
+     *
+     * @return a map of server name to queue size
+     */
     suspend fun collectQueueSizes(): Map<String, Int> {
         return try {
             RedisQueueService.get().getAll()

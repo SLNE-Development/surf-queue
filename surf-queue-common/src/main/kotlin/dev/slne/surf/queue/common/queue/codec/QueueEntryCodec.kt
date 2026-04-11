@@ -7,6 +7,14 @@ import dev.slne.surf.redis.libs.redisson.client.protocol.Encoder
 import dev.slne.surf.redis.shaded.io.netty.buffer.Unpooled
 import java.util.*
 
+/**
+ * Redisson codec for binary serialization of [QueueEntry] objects.
+ *
+ * The binary format is fixed-size ([BUFFER_SIZE] bytes) and laid out as:
+ * - 16 bytes: UUID (most significant bits + least significant bits)
+ * - 8 bytes: `addedAt` timestamp (Long)
+ * - 4 bytes: `priority` (Int)
+ */
 class QueueEntryCodec : BaseCodec() {
     companion object {
         // @formatter:off

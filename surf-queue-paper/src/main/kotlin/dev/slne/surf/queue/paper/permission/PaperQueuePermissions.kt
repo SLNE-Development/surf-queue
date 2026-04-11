@@ -2,6 +2,11 @@ package dev.slne.surf.queue.paper.permission
 
 import dev.slne.surf.surfapi.bukkit.api.permission.PermissionRegistry
 
+/**
+ * Registry of permission nodes used by Paper queue commands.
+ *
+ * All permissions are prefixed with `surf.queue.command`.
+ */
 object PaperQueuePermissions : PermissionRegistry() {
     private const val PREFIX = "surf.queue."
     private const val COMMAND_PREFIX = PREFIX + "command"

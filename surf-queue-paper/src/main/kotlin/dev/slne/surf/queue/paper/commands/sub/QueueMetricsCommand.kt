@@ -9,6 +9,7 @@ import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
 import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
+/** Registers the `metrics` subcommand with `startLogging`, `stopLogging`, and `snapshot` sub-subcommands. */
 fun CommandAPICommand.metricsCommand() = subcommand("metrics") {
     withPermission(PaperQueuePermissions.COMMAND_METRICS)
 

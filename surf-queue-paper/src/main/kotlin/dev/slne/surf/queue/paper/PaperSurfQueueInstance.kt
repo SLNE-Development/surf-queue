@@ -12,6 +12,13 @@ import dev.slne.surf.queue.paper.metrics.QueueMetricsLogger
 import dev.slne.surf.queue.paper.queue.PaperQueueImpl
 import dev.slne.surf.surfapi.bukkit.api.event.register
 
+/**
+ * Paper-specific [QueueInstance] implementation.
+ *
+ * Handles config initialisation, event listener registration, command
+ * registration, and queue ticker scheduling via [QueueStartHook]. Creates
+ * [PaperQueueImpl] instances for each target server.
+ */
 @AutoService(QueueInstance::class)
 class PaperSurfQueueInstance : QueueInstance() {
     override val componentOwner get() = plugin

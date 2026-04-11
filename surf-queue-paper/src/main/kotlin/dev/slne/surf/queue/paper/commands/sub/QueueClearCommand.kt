@@ -11,6 +11,7 @@ import dev.slne.surf.queue.paper.queue.PaperQueueImpl
 import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
+/** Registers the `clear` subcommand that deletes all entries from a queue. */
 fun CommandAPICommand.queueClear() = subcommand("clear") {
     withPermission(PaperQueuePermissions.COMMAND_CLEAR)
     surfBackendServerArgument("server", optional = true)

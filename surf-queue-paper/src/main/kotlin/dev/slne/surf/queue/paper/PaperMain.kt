@@ -4,6 +4,12 @@ import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import dev.slne.surf.queue.common.QueueInstance
 import org.bukkit.plugin.java.JavaPlugin
 
+/**
+ * Paper plugin entry point for surf-queue.
+ *
+ * Delegates all lifecycle events to [QueueInstance], which handles Redis
+ * connection, component loading, and queue ticker management.
+ */
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         QueueInstance.get().load()
@@ -18,4 +24,5 @@ class PaperMain : SuspendingJavaPlugin() {
     }
 }
 
+/** Convenience accessor for the [PaperMain] plugin instance. */
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)

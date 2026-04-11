@@ -8,10 +8,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.time.Duration.Companion.minutes
 
+/**
+ * Periodic logger that outputs a [QueueMetricsSnapshot] and per-queue sizes
+ * to the server log every 5 minutes.
+ *
+ * Controlled via the `/squeue metrics startLogging` and `stopLogging` commands.
+ */
 object QueueMetricsLogger {
     private val log = logger()
     private var job: Job? = null
 
+    /** Starts the periodic logging coroutine. */
     fun start() {
         job = plugin.launch {
             while (isActive) {
@@ -54,6 +61,7 @@ object QueueMetricsLogger {
         }
     }
 
+    /** Stops the periodic logging coroutine if running. */
     fun stop() {
         job?.cancel()
         job = null

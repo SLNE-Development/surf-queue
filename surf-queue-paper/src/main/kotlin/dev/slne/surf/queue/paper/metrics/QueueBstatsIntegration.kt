@@ -7,6 +7,13 @@ import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Integrates queue metrics with bStats (plugin ID 30644).
+ *
+ * Reports delta-based charts for transfers, enqueues, and failed transfers,
+ * plus queue count, total queued players, per-queue transfer breakdown, and
+ * queue sizes as custom charts.
+ */
 object QueueBstatsIntegration {
     private val log = logger()
 
@@ -14,6 +21,7 @@ object QueueBstatsIntegration {
     private var lastEnqueues = AtomicLong(0)
     private var lastFailedTransfers = AtomicLong(0)
 
+    /** Initialises all bStats custom charts and registers them with the metrics service. */
     fun setup() {
         val metrics = Metrics(plugin, 30644)
 

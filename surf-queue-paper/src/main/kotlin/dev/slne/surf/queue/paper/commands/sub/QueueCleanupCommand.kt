@@ -11,6 +11,7 @@ import dev.slne.surf.queue.paper.queue.PaperQueueImpl
 import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
+/** Registers the `cleanup` subcommand that forces removal of expired queue entries. */
 fun CommandAPICommand.queueCleanup() = subcommand("cleanup") {
     withPermission(PaperQueuePermissions.COMMAND_CLEANUP)
     surfBackendServerArgument("server", optional = true)

@@ -5,6 +5,16 @@ import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
 import it.unimi.dsi.fastutil.objects.ObjectList
 import java.util.*
 
+/**
+ * Sends action bar messages to all queued players showing their position
+ * and an animated spinner.
+ *
+ * Refreshes the UUID list every 3 ticks and sends an action bar update
+ * every tick. When the queue is paused, shows a pause indicator instead
+ * of the spinner animation.
+ *
+ * @param queue the [VelocityQueueImpl] this display belongs to
+ */
 class QueueDisplay(private val queue: VelocityQueueImpl) {
 
     companion object {
@@ -15,6 +25,7 @@ class QueueDisplay(private val queue: VelocityQueueImpl) {
 
     private var cachedUuidsWithPosition: ObjectList<UUID>? = null
 
+    /** Refreshes the cached UUID list (every 3 ticks) and updates action bars. */
     suspend fun tick() {
         if (queue.tickCount % 3L == 0L) {
             cachedUuidsWithPosition = queue.getAllUuidsOrderedByPosition()

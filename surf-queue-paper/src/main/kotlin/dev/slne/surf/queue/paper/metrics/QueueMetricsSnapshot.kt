@@ -1,5 +1,23 @@
 package dev.slne.surf.queue.paper.metrics
 
+/**
+ * Immutable point-in-time snapshot of all queue metrics.
+ *
+ * Created via [QueueMetrics.snapshot] and used for logging and in-game display.
+ *
+ * @property totalTransfers total successful transfers across all queues
+ * @property totalEnqueues total enqueue events
+ * @property totalDequeues total dequeue events
+ * @property totalFailedTransfers total failed transfer attempts
+ * @property totalGraceExpiries total players removed due to grace period expiry
+ * @property totalRetryExhausted total players removed after exhausting retries
+ * @property totalLockAttempts total distributed lock acquisition attempts
+ * @property totalLockAcquired total successful lock acquisitions
+ * @property totalCleanupCycles total cleanup cycles executed
+ * @property totalCleanupRemovals total entries removed during cleanup
+ * @property totalTicks total tick events
+ * @property perQueue per-queue breakdown of metrics
+ */
 data class QueueMetricsSnapshot(
     val totalTransfers: Long,
     val totalEnqueues: Long,
@@ -14,6 +32,15 @@ data class QueueMetricsSnapshot(
     val totalTicks: Long,
     val perQueue: Map<String, PerQueueMetrics>
 ) {
+    /**
+     * Per-queue metrics breakdown.
+     *
+     * @property transfers successful transfers for this queue
+     * @property enqueues enqueue events for this queue
+     * @property dequeues dequeue events for this queue
+     * @property failedTransfers failed transfer attempts for this queue
+     * @property skips skip events for this queue
+     */
     data class PerQueueMetrics(
         val transfers: Long,
         val enqueues: Long,
@@ -22,9 +49,11 @@ data class QueueMetricsSnapshot(
         val skips: Long
     )
 
+    /** Ratio of successful lock acquisitions to total attempts (0.0–1.0). */
     val lockAcquisitionRate: Double
         get() = if (totalLockAttempts > 0) totalLockAcquired.toDouble() / totalLockAttempts else 0.0
 
+    /** Ratio of successful transfers to total attempts (0.0–1.0). */
     val transferSuccessRate: Double
         get() {
             val total = totalTransfers + totalFailedTransfers

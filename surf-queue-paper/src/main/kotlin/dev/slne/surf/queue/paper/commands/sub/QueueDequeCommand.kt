@@ -14,6 +14,7 @@ import dev.slne.surf.surfapi.bukkit.api.command.util.awaitAsyncPlayerProfile
 import dev.slne.surf.surfapi.bukkit.api.command.util.idOrThrow
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
+/** Registers the `dequeue` subcommand that removes a player from a queue. */
 fun CommandAPICommand.queueDequeue() = subcommand("dequeue") {
     withPermission(PaperQueuePermissions.COMMAND_DEQUEUE)
     argument(AsyncPlayerProfileArgument("player"))

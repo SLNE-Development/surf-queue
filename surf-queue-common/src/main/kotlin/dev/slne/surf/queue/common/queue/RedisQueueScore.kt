@@ -84,6 +84,9 @@ value class RedisQueueScore(val packed: Double) {
             return RedisQueueScore(value.toDouble())
         }
 
+        /**
+         * Wraps [value] in a [RedisQueueScore], or returns `null` if [value] is `null`.
+         */
         fun optional(value: Double?): RedisQueueScore? = value?.let { RedisQueueScore(it) }
     }
 

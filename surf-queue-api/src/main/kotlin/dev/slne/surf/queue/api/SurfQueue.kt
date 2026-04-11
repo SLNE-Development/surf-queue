@@ -32,7 +32,7 @@ interface SurfQueue {
 
     /**
      * Enqueues [uuid] with an explicit [priority].
-     * Priorities above [RedisQueueScore.MAX_PRIORITY] are capped automatically.
+     * Priorities above the maximum representable value are capped automatically.
      *
      * @return `true` if the player was newly added, `false` if already queued.
      */

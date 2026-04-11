@@ -10,6 +10,7 @@ import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
 import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
+/** Registers the `pause` subcommand with `pause`, `resume`, and `status` sub-subcommands. */
 fun CommandAPICommand.queuePause() = subcommand("pause") {
     withPermission(PaperQueuePermissions.COMMAND_PAUSE)
 

@@ -4,11 +4,27 @@ import dev.slne.surf.queue.api.InternalSurfQueueApi
 import dev.slne.surf.queue.api.SurfQueue
 import dev.slne.surf.surfapi.core.api.util.requiredService
 
+/**
+ * Internal service interface responsible for creating and caching [SurfQueue] instances.
+ *
+ * The concrete implementation ([dev.slne.surf.queue.common.queue.RedisQueueService]) is
+ * loaded via `@AutoService` and accessed through the [instance] companion property.
+ * This interface is marked as [InternalSurfQueueApi] and should not be used directly;
+ * prefer [SurfQueue.byServer] instead.
+ */
 @InternalSurfQueueApi
 interface SurfQueueService {
+    /**
+     * Returns the [SurfQueue] for the given [serverName], creating a new one if it
+     * does not already exist in the cache.
+     *
+     * @param serverName the name of the target server
+     * @return the queue instance for that server
+     */
     fun get(serverName: String): SurfQueue
 
     companion object {
+        /** The singleton service instance, loaded via `requiredService`. */
         val instance = requiredService<SurfQueueService>()
     }
 }

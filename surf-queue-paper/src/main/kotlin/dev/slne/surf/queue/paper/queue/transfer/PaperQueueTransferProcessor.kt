@@ -15,6 +15,18 @@ import java.time.Duration
 import java.time.Instant
 import java.util.*
 
+/**
+ * Orchestrates the transfer of queued players to the target server.
+ *
+ * Uses exponential backoff ([DecorrelatedJitterDelay]) to reduce load when
+ * the queue is empty or the server is full. Acquires a distributed transfer
+ * lock before processing to ensure only one node transfers at a time.
+ *
+ * @param serverName the target server name
+ * @param store the [RedisQueueStore] for reading/writing queue data
+ * @param lockManager the [RedisQueueLockManager] for distributed synchronization
+ * @param gracePeriodMs the grace period before offline players are removed
+ */
 class PaperQueueTransferProcessor(
     private val serverName: String,
     private val store: RedisQueueStore,
@@ -32,6 +44,10 @@ class PaperQueueTransferProcessor(
             DecorrelatedJitterDelay(Duration.ofSeconds(2), Duration.ofSeconds(5))
     }
 
+    /**
+     * Tick function called once per second. Checks backoff timing, attempts
+     * transfers, and adjusts the backoff delay based on the result.
+     */
     suspend fun tick() {
         if (store.isPaused()) return
 
@@ -58,6 +74,14 @@ class PaperQueueTransferProcessor(
         }
     }
 
+    /**
+     * Acquires the transfer lock and processes up to [maxTransfers] entries.
+     *
+     * @param maxTransfers maximum entries to process in this batch
+     * @param tryTransfer callback that attempts a single player transfer and
+     *   returns the [TransferAction] result with an optional message
+     * @return the number of players successfully transferred
+     */
     suspend fun processTransfers(
         maxTransfers: Int,
         tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>

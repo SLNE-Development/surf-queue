@@ -26,6 +26,7 @@ private val pagination = Pagination<Object2IntMap.Entry<UUID>> {
     }
 }
 
+/** Registers the `list` subcommand that displays all queued players with pagination. */
 fun CommandAPICommand.queueList() = subcommand("list") {
     withPermission(PaperQueuePermissions.COMMAND_LIST)
     surfBackendServerArgument("server", optional = true)

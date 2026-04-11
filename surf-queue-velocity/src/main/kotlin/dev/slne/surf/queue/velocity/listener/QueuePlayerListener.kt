@@ -9,6 +9,14 @@ import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
+/**
+ * Velocity event listener that manages player connect/disconnect events
+ * for queue grace-period tracking.
+ *
+ * On login, clears the last-seen timestamp for all queues (cancels grace period).
+ * On disconnect, records the current time as last-seen for all queues.
+ * Operations are performed in parallel across all queues using [coroutineScope].
+ */
 object QueuePlayerListener {
     private val log = logger()
 

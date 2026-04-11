@@ -10,6 +10,7 @@ import dev.slne.surf.queue.velocity.permission.SurfQueuePermissions
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 import dev.slne.surf.surfapi.velocity.api.command.executors.anyExecutorSuspend
 
+/** Registers the `pause` subcommand with `pause`, `resume`, and `status` actions for a given server. */
 fun CommandTree.queuePauseCommand() = literalArgument("pause") {
     withPermission(SurfQueuePermissions.COMMAND_PAUSE)
 

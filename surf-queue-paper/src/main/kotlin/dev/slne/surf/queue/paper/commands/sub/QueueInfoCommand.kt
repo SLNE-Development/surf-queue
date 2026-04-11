@@ -17,6 +17,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
+/** Registers the `info` subcommand that displays detailed queue entry information for a player. */
 fun CommandAPICommand.queueInfo() = subcommand("info") {
     withPermission(PaperQueuePermissions.COMMAND_INFO)
 

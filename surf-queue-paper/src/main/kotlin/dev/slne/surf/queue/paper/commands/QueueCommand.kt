@@ -10,6 +10,7 @@ import dev.slne.surf.queue.paper.commands.sub.queueInfo
 import dev.slne.surf.queue.paper.commands.sub.queueList
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
 
+/** Registers the root `/squeue` command with all subcommands. */
 fun queueCommand() = commandAPICommand("squeue") {
     withPermission(PaperQueuePermissions.COMMAND_QUEUE)
 

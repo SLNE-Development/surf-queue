@@ -10,6 +10,16 @@ import com.velocitypowered.api.proxy.ProxyServer
 import dev.slne.surf.queue.common.QueueInstance
 import kotlinx.coroutines.runBlocking
 
+/**
+ * Velocity proxy plugin entry point for surf-queue.
+ *
+ * Initialises the [SuspendingPluginContainer], sets the global [plugin] reference,
+ * and delegates lifecycle events to [QueueInstance].
+ *
+ * @param proxy the Velocity [ProxyServer] instance
+ * @param container the plugin's [PluginContainer]
+ * @param suspendingPluginContainer MCCoroutine's suspending plugin container
+ */
 class VelocityMain @Inject constructor(
     val proxy: ProxyServer,
     val container: PluginContainer,
@@ -35,5 +45,6 @@ class VelocityMain @Inject constructor(
     }
 }
 
+/** Global accessor for the [VelocityMain] plugin instance. */
 lateinit var plugin: VelocityMain
     private set

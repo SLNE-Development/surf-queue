@@ -10,6 +10,13 @@ import dev.slne.surf.redis.libs.redisson.api.options.KeysScanOptions
 import kotlinx.coroutines.reactive.collect
 import java.time.Duration
 
+/**
+ * Caffeine-cached queue factory implementing [SurfQueueService].
+ *
+ * Queues are created on-demand via [QueueInstance.createQueue] and cached with
+ * a TTL of `4 × QUEUE_REFRESH_INTERVAL_SECONDS`. The [fetchFromRedis] method
+ * discovers existing queues by scanning for epoch-ms keys in Redis.
+ */
 @OptIn(InternalSurfQueueApi::class)
 @AutoService(SurfQueueService::class)
 class RedisQueueService : SurfQueueService {
@@ -18,10 +25,16 @@ class RedisQueueService : SurfQueueService {
         .build<String, AbstractQueue> { serverName -> QueueInstance.get().createQueue(serverName) }
 
     override fun get(serverName: String) = queues.get(serverName)
+    /** Returns all currently cached queue instances. */
     fun getAll() = queues.asMap().values
 
+    /** Invalidates (removes) the cached queue for [serverName]. */
     fun delete(serverName: String) = queues.invalidate(serverName)
 
+    /**
+     * Scans Redis for existing queue epoch-ms keys and warms the cache
+     * by calling [get] for each discovered server name.
+     */
     suspend fun fetchFromRedis() {
         redisApi.redissonReactive.keys
             .getKeys(
@@ -36,7 +49,10 @@ class RedisQueueService : SurfQueueService {
         .replaceFirst(RedisQueueKeys.EPOCH_MS_SUFFIX, "")
 
     companion object {
+        /** Interval in seconds between automatic queue list refreshes. */
         const val QUEUE_REFRESH_INTERVAL_SECONDS = 30
+
+        /** Convenience accessor that casts the [SurfQueueService.instance] to [RedisQueueService]. */
         fun get() = SurfQueueService.instance as RedisQueueService
     }
 }

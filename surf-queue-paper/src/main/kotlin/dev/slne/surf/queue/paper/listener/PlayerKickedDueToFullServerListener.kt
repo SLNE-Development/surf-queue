@@ -10,6 +10,14 @@ import org.bukkit.event.player.AsyncPlayerPreLoginEvent
 import java.util.*
 import kotlin.time.Duration.Companion.minutes
 
+/**
+ * Tracks players who were denied login due to a full server.
+ *
+ * Uses a Caffeine cache (2-minute TTL, max 10 000 entries) to remember UUIDs
+ * of players that received `KICK_FULL` or whose [PlayerServerFullCheckEvent]
+ * was denied. The [PaperQueueTransfer] consumes these records to distinguish
+ * "server full" disconnects from other kick reasons.
+ */
 object PlayerKickedDueToFullServerListener : Listener {
     private val kicks = Caffeine.newBuilder()
         .expireAfterWrite(2.minutes)
@@ -30,6 +38,13 @@ object PlayerKickedDueToFullServerListener : Listener {
         }
     }
 
+    /**
+     * Consumes and returns whether the player with the given [uuid] was
+     * recently kicked due to a full server.
+     *
+     * @param uuid the player's unique identifier
+     * @return `true` if the player was kicked due to a full server (entry is removed), `false` otherwise
+     */
     fun consumeWasKickedDueToFullServer(uuid: UUID): Boolean {
         return kicks.asMap().remove(uuid) ?: false
     }

@@ -1,5 +1,10 @@
 package dev.slne.surf.queue.velocity.permission
 
+/**
+ * Permission string constants for Velocity queue commands.
+ *
+ * All permissions are prefixed with `surf.queue.command.`.
+ */
 object SurfQueuePermissions {
     private const val PREFIX = "surf.queue."
 

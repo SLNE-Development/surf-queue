@@ -8,6 +8,13 @@ import dev.slne.surf.queue.velocity.command.queueCommand
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
 import dev.slne.surf.queue.velocity.queue.VelocityQueueImpl
 
+/**
+ * Velocity-specific [QueueInstance] implementation.
+ *
+ * Registers the [QueuePlayerListener], registers commands, and starts the
+ * [QueueTicker] on enable. Creates [VelocityQueueImpl] instances for each
+ * target server.
+ */
 @AutoService(QueueInstance::class)
 class VelocitySurfQueueInstance : QueueInstance() {
     override val componentOwner get() = plugin.container

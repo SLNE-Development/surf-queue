@@ -16,6 +16,7 @@ import dev.slne.surf.surfapi.bukkit.api.command.util.awaitAsyncPlayerProfile
 import dev.slne.surf.surfapi.bukkit.api.command.util.idOrThrow
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
+/** Registers the `enqueue` subcommand that adds a player to a queue with an optional priority. */
 fun CommandAPICommand.queueEnqueue() = subcommand("enqueue") {
     withPermission(PaperQueuePermissions.COMMAND_ENQUEUE)
 

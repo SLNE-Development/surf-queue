@@ -10,6 +10,17 @@ import java.util.UUID
 import kotlin.collections.iterator
 import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Periodically removes expired queue entries (players who have been offline
+ * longer than [PaperQueueImpl.GRACE_PERIOD_MS]).
+ *
+ * Runs every [CLEANUP_INTERVAL_TICKS] ticks under the distributed cleanup lock
+ * to ensure only one server node performs cleanup at a time.
+ *
+ * @param queue the [PaperQueueImpl] this cleanup belongs to
+ * @param store the [RedisQueueStore] for data access
+ * @param lockManager the [RedisQueueLockManager] for distributed synchronization
+ */
 class PaperQueueCleanup(
     private val queue: PaperQueueImpl,
     private val store: RedisQueueStore,
@@ -25,6 +36,10 @@ class PaperQueueCleanup(
         }
     }
 
+    /**
+     * Called every tick. Runs [cleanupExpiredEntries] every [CLEANUP_INTERVAL_TICKS] ticks
+     * under the cleanup lock.
+     */
     suspend fun tick() {
         if (queue.tickCount % CLEANUP_INTERVAL_TICKS == 0L) {
             lockManager.withCleanupLock {
@@ -33,6 +48,10 @@ class PaperQueueCleanup(
         }
     }
 
+    /**
+     * Scans all last-seen entries and removes those that have expired beyond
+     * the grace period.
+     */
     suspend fun cleanupExpiredEntries() {
         val now = Instant.now().toEpochMilli()
         val allLastSeen = store.readAllLastSeen()
