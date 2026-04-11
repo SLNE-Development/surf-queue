@@ -4,11 +4,14 @@ import dev.slne.surf.queue.api.SurfQueue
 import dev.slne.surf.queue.common.hook.priority.LuckpermsPriorityHook
 import dev.slne.surf.surfapi.core.api.util.logger
 import it.unimi.dsi.fastutil.objects.Object2IntMap
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import it.unimi.dsi.fastutil.objects.ObjectList
+import org.jetbrains.annotations.MustBeInvokedByOverriders
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 
-abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
+abstract class AbstractQueue(override val serverName: String) : SurfQueue {
     protected val keys = RedisQueueKeys(serverName)
     protected val store = RedisQueueStore(keys)
     protected val lockManager = RedisQueueLockManager(keys)
@@ -21,6 +24,9 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
      * advanced so no collision occurs.
      */
     private val enqueueSequence = AtomicInteger(0)
+
+    var tickCount = 0
+        private set
 
     companion object {
         private val log = logger()
@@ -40,6 +46,11 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
                 RedisQueueScore.MAX_PRIORITY
             }
         }
+    }
+
+    @MustBeInvokedByOverriders
+    open suspend fun tick() {
+        tickCount++
     }
 
     override suspend fun enqueue(uuid: UUID): Boolean {
@@ -91,11 +102,30 @@ abstract class AbstractSurfQueue(override val serverName: String) : SurfQueue {
         return store.rank(uuid)
     }
 
-    override suspend fun getAllUuidsWithPosition(): Collection<Object2IntMap.Entry<UUID>> {
-        return store.readAllEntries()
-            .mapIndexed { index, entry ->
-                Object2IntMap.entry(entry.value, index + 1)
-            }
+    @Deprecated(
+        "Use getAllUuidsOrderedByPosition for better performance",
+        replaceWith = ReplaceWith("getAllUuidsOrderedByPosition()")
+    )
+    override suspend fun getAllUuidsWithPosition(): ObjectList<Object2IntMap.Entry<UUID>> {
+        val entries = store.readAllEntries()
+        val uuidsWithPosition = ObjectArrayList<Object2IntMap.Entry<UUID>>(entries.size)
+
+        for ((index, entry) in entries.withIndex()) {
+            uuidsWithPosition.add(Object2IntMap.entry(entry.value, index + 1))
+        }
+
+        return uuidsWithPosition
+    }
+
+    override suspend fun getAllUuidsOrderedByPosition(): ObjectList<UUID> {
+        val entries = store.readAllEntries()
+        val uuids = ObjectArrayList<UUID>(entries.size)
+
+        for (entry in entries) {
+            uuids.add(entry.value)
+        }
+
+        return uuids
     }
 
     override suspend fun size(): Int {

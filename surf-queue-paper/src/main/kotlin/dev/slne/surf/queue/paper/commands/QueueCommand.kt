@@ -1,6 +1,7 @@
 package dev.slne.surf.queue.paper.commands
 
 import dev.jorel.commandapi.kotlindsl.commandAPICommand
+import dev.slne.surf.queue.paper.commands.sub.metricsCommand
 import dev.slne.surf.queue.paper.commands.sub.queueDequeue
 import dev.slne.surf.queue.paper.commands.sub.queueCleanup
 import dev.slne.surf.queue.paper.commands.sub.queueClear
@@ -18,4 +19,5 @@ fun queueCommand() = commandAPICommand("squeue") {
     queueEnqueue()
     queueInfo()
     queueList()
+    metricsCommand()
 }

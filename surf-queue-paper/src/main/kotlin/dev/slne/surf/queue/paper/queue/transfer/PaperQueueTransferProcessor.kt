@@ -1,4 +1,4 @@
-package dev.slne.surf.queue.paper.queue
+package dev.slne.surf.queue.paper.queue.transfer
 
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.util.sendText
@@ -61,14 +61,12 @@ class PaperQueueTransferProcessor(
     suspend fun processTransfers(
         maxTransfers: Int,
         tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>
-    ): Int {
-        return lockManager.withTransferLock { acquired ->
-            QueueMetrics.recordLockAttempt(acquired)
-            if (acquired) {
-                doProcessTransfers(maxTransfers, tryTransfer)
-            } else {
-                0
-            }
+    ): Int = lockManager.withTransferLock { acquired ->
+        QueueMetrics.recordLockAttempt(acquired)
+        if (acquired) {
+            doProcessTransfers(maxTransfers, tryTransfer)
+        } else {
+            0
         }
     }
 
@@ -131,7 +129,7 @@ class PaperQueueTransferProcessor(
 
                     TransferAction.TIMEOUT -> {
                         // Timeout means the target server is likely unreachable.
-                        // Dequeue immediately instead of retrying with another 30 s timeout
+                        // Dequeue immediately instead of retrying with another 30s timeout
                         // to avoid blocking the entire queue for extended periods.
                         store.dequeue(uuid)
                         QueueMetrics.recordFailedTransfer(serverName)

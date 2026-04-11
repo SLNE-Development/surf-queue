@@ -4,6 +4,7 @@ import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.queue.api.service.SurfQueueService
 import it.unimi.dsi.fastutil.objects.Object2IntMap
+import it.unimi.dsi.fastutil.objects.ObjectList
 import java.util.*
 
 interface SurfQueue {
@@ -22,7 +23,13 @@ interface SurfQueue {
     suspend fun pause()
     suspend fun resume()
 
-    suspend fun getAllUuidsWithPosition(): Collection<Object2IntMap.Entry<UUID>>
+    @Deprecated(
+        "Use getAllUuidsOrderedByPosition for better performance",
+        ReplaceWith("getAllUuidsOrderedByPosition()")
+    )
+    suspend fun getAllUuidsWithPosition(): ObjectList<Object2IntMap.Entry<UUID>>
+
+    suspend fun getAllUuidsOrderedByPosition(): ObjectList<UUID>
 
     @OptIn(InternalSurfQueueApi::class)
     companion object {

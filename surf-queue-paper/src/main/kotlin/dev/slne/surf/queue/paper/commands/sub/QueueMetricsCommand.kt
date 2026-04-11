@@ -1,18 +1,18 @@
-package dev.slne.surf.queue.velocity.command.metrics
+package dev.slne.surf.queue.paper.commands.sub
 
-import dev.jorel.commandapi.CommandTree
+import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.anyExecutor
-import dev.jorel.commandapi.kotlindsl.literalArgument
-import dev.slne.surf.queue.velocity.metrics.QueueMetrics
-import dev.slne.surf.queue.velocity.metrics.QueueMetricsLogger
-import dev.slne.surf.queue.velocity.permission.SurfQueuePermissions
+import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.slne.surf.queue.paper.metrics.QueueMetrics
+import dev.slne.surf.queue.paper.metrics.QueueMetricsLogger
+import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
+import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
 import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
-import dev.slne.surf.surfapi.velocity.api.command.executors.anyExecutorSuspend
 
-fun CommandTree.metricsCommand() = literalArgument("metrics") {
-    withPermission(SurfQueuePermissions.COMMAND_METRICS)
+fun CommandAPICommand.metricsCommand() = subcommand("metrics") {
+    withPermission(PaperQueuePermissions.COMMAND_METRICS)
 
-    literalArgument("startLogging") {
+    subcommand("startLogging") {
         anyExecutor { source, arguments ->
             QueueMetricsLogger.stop()
             QueueMetricsLogger.start()
@@ -23,7 +23,7 @@ fun CommandTree.metricsCommand() = literalArgument("metrics") {
         }
     }
 
-    literalArgument("stopLogging") {
+    subcommand("stopLogging") {
         anyExecutor { source, arguments ->
             QueueMetricsLogger.stop()
             source.sendText {
@@ -33,7 +33,7 @@ fun CommandTree.metricsCommand() = literalArgument("metrics") {
         }
     }
 
-    literalArgument("snapshot") {
+    subcommand("snapshot") {
         anyExecutorSuspend { sender, _ ->
             val snapshot = QueueMetrics.snapshot()
             val queueSizes = QueueMetrics.collectQueueSizes()

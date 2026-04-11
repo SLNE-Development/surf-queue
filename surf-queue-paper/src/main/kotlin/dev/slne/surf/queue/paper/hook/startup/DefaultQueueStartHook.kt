@@ -6,6 +6,7 @@ import dev.slne.surf.surfapi.shared.api.component.requirement.ConditionalOnMissi
 @ComponentMeta
 @ConditionalOnMissingComponent(QueueStartHook::class)
 class DefaultQueueStartHook : QueueStartHook() {
+
     override suspend fun onEnable() {
         runServerReadyTasks()
     }

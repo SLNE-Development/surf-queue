@@ -2,8 +2,8 @@ package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.velocity.util.toVelocityPlayer
 import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
-import it.unimi.dsi.fastutil.objects.Object2IntMap
-import java.util.UUID
+import it.unimi.dsi.fastutil.objects.ObjectList
+import java.util.*
 
 class QueueDisplay(private val queue: VelocitySurfQueue) {
 
@@ -13,11 +13,11 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
         private const val PAUSE_CHAR = '⏸'
     }
 
-    private var cachedUuidsWithPosition: Collection<Object2IntMap.Entry<UUID>>? = null
+    private var cachedUuidsWithPosition: ObjectList<UUID>? = null
 
     suspend fun tick() {
-        if (queue.getTickCount() % 3L == 0L) {
-            cachedUuidsWithPosition = queue.getAllUuidsWithPosition()
+        if (queue.tickCount % 3L == 0L) {
+            cachedUuidsWithPosition = queue.getAllUuidsOrderedByPosition()
         }
 
         updateActionBars()
@@ -25,14 +25,12 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
 
     private suspend fun updateActionBars() {
         val uuidsWithPosition = cachedUuidsWithPosition ?: return
-        val spinnerIndex = (queue.getTickCount() % spinner.size)
+        val spinnerIndex = (queue.tickCount % spinner.size)
         val spinnerEnd = spinner[spinnerIndex]
         val spinnerStart = spinnerReversed[spinnerIndex]
         val paused = queue.isPaused()
 
-        for (entry in uuidsWithPosition) {
-            val uuid = entry.key
-            val position = entry.intValue
+        for ((index, uuid) in uuidsWithPosition.withIndex()) {
             val player = uuid.toVelocityPlayer() ?: continue
 
             player.sendActionBar(buildText {
@@ -51,7 +49,7 @@ class QueueDisplay(private val queue: VelocitySurfQueue) {
                     appendSpace()
                     spacer('|')
                     appendSpace()
-                    variableValue("$position/${uuidsWithPosition.size}")
+                    variableValue("${index + 1}/${uuidsWithPosition.size}")
                     appendSpace()
                     spacer(spinnerEnd)
                 }

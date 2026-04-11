@@ -1,7 +1,9 @@
 package dev.slne.surf.queue.common.redis
 
+import com.google.auto.service.AutoService
 import dev.slne.surf.redis.RedisApi
 import dev.slne.surf.surfapi.core.api.util.requiredService
+import net.kyori.adventure.util.Services
 import org.jetbrains.annotations.MustBeInvokedByOverriders
 
 abstract class RedisInstance {
@@ -26,6 +28,9 @@ abstract class RedisInstance {
         fun get() = instance
 
         fun namespaced(key: String) = "surf-queue:$key"
+
+        @AutoService(RedisInstance::class)
+        class Fallback : RedisInstance(), Services.Fallback
     }
 }
 

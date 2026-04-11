@@ -1,21 +1,20 @@
 package dev.slne.surf.queue.paper
 
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
-import dev.slne.surf.queue.common.SurfQueueInstance
-import dev.slne.surf.surfapi.core.api.component.surfComponentApi
+import dev.slne.surf.queue.common.QueueInstance
 import org.bukkit.plugin.java.JavaPlugin
 
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
-        SurfQueueInstance.get().load()
+        QueueInstance.get().load()
     }
 
     override suspend fun onEnableAsync() {
-        SurfQueueInstance.get().enable()
+        QueueInstance.get().enable()
     }
 
     override suspend fun onDisableAsync() {
-        SurfQueueInstance.get().disable()
+        QueueInstance.get().disable()
     }
 }
 

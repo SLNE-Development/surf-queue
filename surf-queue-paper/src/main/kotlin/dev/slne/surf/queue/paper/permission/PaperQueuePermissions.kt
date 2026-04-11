@@ -14,4 +14,5 @@ object PaperQueuePermissions : PermissionRegistry() {
     val COMMAND_INFO = create("$COMMAND_QUEUE.info")
     val COMMAND_LIST = create("$COMMAND_QUEUE.list")
     val COMMAND_PAUSE = create("$COMMAND_QUEUE.pause")
+    val COMMAND_METRICS = create("$COMMAND_PREFIX.metrics")
 }
