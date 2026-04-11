@@ -5,7 +5,7 @@ import dev.slne.surf.queue.common.queue.tick.SafeQueueTick
 import java.time.Instant
 import java.util.*
 
-class VelocitySurfQueue(serverName: String) : AbstractQueue(serverName) {
+class VelocityQueueImpl(serverName: String) : AbstractQueue(serverName) {
     val display = QueueDisplay(this)
 
     suspend fun markPlayerReconnected(uuid: UUID) {

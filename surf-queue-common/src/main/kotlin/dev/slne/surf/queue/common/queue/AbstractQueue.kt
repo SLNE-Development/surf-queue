@@ -11,10 +11,39 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * Base implementation of [SurfQueue] backed by Redis.
+ *
+ * Subclasses must supply a [serverName] and may override [onEnqueued] / [onDequeued]
+ * for platform-specific side effects (e.g., metrics). They may also override [tick]
+ * to add periodic processing, but **must** call `super.tick()`.
+ *
+ * Ordering is determined by a packed Redis score that encodes priority, enqueue
+ * timestamp (relative to a per-queue epoch), and a monotonic sequence number for
+ * tie-breaking within the same millisecond.
+ *
+ * @param serverName The name of the server this queue targets.
+ */
 abstract class AbstractQueue(override val serverName: String) : SurfQueue {
+
+    /**
+     * Redis keys used for queue storage and synchronization.
+     */
     protected val keys = RedisQueueKeys(serverName)
+
+    /**
+     * Persistent storage for queue entries and scores.
+     */
     protected val store = RedisQueueStore(keys)
+
+    /**
+     * Distributed lock manager for this queue.
+     */
     protected val lockManager = RedisQueueLockManager(keys)
+
+    /**
+     * Millisecond epoch used to make timestamps relative, reducing score magnitude.
+     */
     protected val epochMs = store.initEpochMs()
 
     /**
@@ -25,12 +54,16 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
      */
     private val enqueueSequence = AtomicInteger(0)
 
+    /** Number of times [tick] has been called since creation. */
     var tickCount = 0
         private set
 
     companion object {
         private val log = logger()
 
+        /**
+         * Caps [priority] to [RedisQueueScore.MAX_PRIORITY] and logs a warning if it exceeds the limit.
+         */
         fun fixPriority(uuid: UUID, priority: Int): Int {
             return if (priority <= RedisQueueScore.MAX_PRIORITY) {
                 priority
@@ -48,6 +81,9 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
         }
     }
 
+    /**
+     * Increments [tickCount]. Subclasses that override this **must** invoke `super.tick()`.
+     */
     @MustBeInvokedByOverriders
     open suspend fun tick() {
         tickCount++
@@ -83,7 +119,16 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
         return added
     }
 
+    /**
+     * Called after a player is successfully enqueued. Override for side effects such as
+     * recording metrics. No-op by default.
+     */
     protected open fun onEnqueued() {}
+
+    /**
+     * Called after a player is successfully dequeued. Override for side effects such as
+     * recording metrics. No-op by default.
+     */
     protected open fun onDequeued() {}
 
     override suspend fun dequeue(uuid: UUID): Boolean {
@@ -144,8 +189,24 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
         store.setPaused(true)
     }
 
+    /**
+     * Returns the raw [QueueEntry] metadata for [uuid], or `null` if not queued.
+     */
     suspend fun getEntryMeta(uuid: UUID): QueueEntry? = store.getMeta(uuid)
+
+    /**
+     * Returns the packed [RedisQueueScore] for [uuid], or `null` if not queued.
+     */
     suspend fun getEntryScore(uuid: UUID): RedisQueueScore? = store.getScore(uuid)
+
+    /**
+     * Returns the last-seen timestamp (epoch ms) for [uuid], or `null` if not recorded.
+     * Used to track disconnected players within their grace period.
+     */
     suspend fun getEntryLastSeen(uuid: UUID): Long? = store.getLastSeen(uuid)
+
+    /**
+     * Returns the number of transfer retry attempts for [uuid], or `null` if not queued.
+     */
     suspend fun getEntryRetryCount(uuid: UUID): Int? = store.getRetryCount(uuid)
 }

@@ -5,7 +5,7 @@ import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
 import it.unimi.dsi.fastutil.objects.ObjectList
 import java.util.*
 
-class QueueDisplay(private val queue: VelocitySurfQueue) {
+class QueueDisplay(private val queue: VelocityQueueImpl) {
 
     companion object {
         private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")

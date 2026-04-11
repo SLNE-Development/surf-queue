@@ -6,7 +6,7 @@ import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.QueueTicker
 import dev.slne.surf.queue.velocity.command.queueCommand
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
-import dev.slne.surf.queue.velocity.queue.VelocitySurfQueue
+import dev.slne.surf.queue.velocity.queue.VelocityQueueImpl
 
 @AutoService(QueueInstance::class)
 class VelocitySurfQueueInstance : QueueInstance() {
@@ -21,6 +21,6 @@ class VelocitySurfQueueInstance : QueueInstance() {
     }
 
     override fun createQueue(serverName: String): AbstractQueue {
-        return VelocitySurfQueue(serverName)
+        return VelocityQueueImpl(serverName)
     }
 }
