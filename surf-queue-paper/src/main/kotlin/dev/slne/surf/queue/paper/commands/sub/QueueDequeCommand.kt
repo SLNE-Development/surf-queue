@@ -24,7 +24,7 @@ fun CommandAPICommand.queueDequeue() = subcommand("dequeue") {
         val uuid = profile.idOrThrow()
         val server: SurfServer? by arguments
         val serverName = server?.name ?: SurfServer.current().name
-        val queue = RedisQueueService.get().get(serverName)
+        val queue = RedisQueueService.get().getQueueByName(serverName)
 
         val dequeued = queue.dequeue(uuid)
         if (dequeued) {

@@ -18,7 +18,7 @@ fun CommandAPICommand.queuePause() = subcommand("pause") {
         anyExecutorSuspend { sender, arguments ->
             val server: SurfServer? by arguments
             val serverName = server?.name ?: SurfServer.current().name
-            val queue = RedisQueueService.get().get(serverName)
+            val queue = RedisQueueService.get().getQueueByName(serverName)
             queue.pause()
 
             sender.sendText {
@@ -33,7 +33,7 @@ fun CommandAPICommand.queuePause() = subcommand("pause") {
         anyExecutorSuspend { sender, arguments ->
             val server: SurfServer? by arguments
             val serverName = server?.name ?: SurfServer.current().name
-            val queue = RedisQueueService.get().get(serverName)
+            val queue = RedisQueueService.get().getQueueByName(serverName)
             queue.resume()
             sender.sendText {
                 appendSuccessPrefix()
@@ -47,7 +47,7 @@ fun CommandAPICommand.queuePause() = subcommand("pause") {
         anyExecutorSuspend { sender, arguments ->
             val server: SurfServer? by arguments
             val serverName = server?.name ?: SurfServer.current().name
-            val queue = RedisQueueService.get().get(serverName)
+            val queue = RedisQueueService.get().getQueueByName(serverName)
             val isPaused = queue.isPaused()
             sender.sendText {
                 appendSuccessPrefix()

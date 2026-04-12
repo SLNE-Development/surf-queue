@@ -3,7 +3,7 @@ package dev.slne.surf.queue.paper
 import com.google.auto.service.AutoService
 import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.AbstractQueue
-import dev.slne.surf.queue.common.queue.QueueTicker
+import dev.slne.surf.queue.common.queue.tick.QueueTicker
 import dev.slne.surf.queue.paper.commands.queueCommand
 import dev.slne.surf.queue.paper.config.SurfQueueConfig
 import dev.slne.surf.queue.paper.hook.startup.QueueStartHook

@@ -32,7 +32,7 @@ interface SurfQueue {
 
     /**
      * Enqueues [uuid] with an explicit [priority].
-     * Priorities above [RedisQueueScore.MAX_PRIORITY] are capped automatically.
+     * Priorities above the maximum representable value are capped automatically.
      *
      * @return `true` if the player was newly added, `false` if already queued.
      */
@@ -92,7 +92,7 @@ interface SurfQueue {
         /**
          * Returns the [SurfQueue] for the given [serverName], or creates a new one if it doesn't exist.
          */
-        fun byServer(serverName: String) = SurfQueueService.instance.get(serverName)
+        fun byServer(serverName: String) = SurfQueueService.instance.getQueueByName(serverName)
 
         /**
          * Returns the [SurfQueue] for the given [server], or creates a new one if it doesn't exist.

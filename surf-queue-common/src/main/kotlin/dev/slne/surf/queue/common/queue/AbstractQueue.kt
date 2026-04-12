@@ -2,7 +2,8 @@ package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.queue.api.SurfQueue
 import dev.slne.surf.queue.common.hook.priority.LuckpermsPriorityHook
-import dev.slne.surf.api.core.util.logger
+import dev.slne.surf.queue.common.queue.entry.QueueEntry
+import dev.slne.surf.surfapi.core.api.util.logger
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.ObjectList

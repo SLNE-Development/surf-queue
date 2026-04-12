@@ -26,7 +26,8 @@ class PaperQueueImpl(serverName: String) : AbstractQueue(serverName) {
         QueueMetrics.recordDequeue(serverName)
     }
 
-    suspend fun tickSecond() {
+    override suspend fun tick() {
+        super.tick()
         if (isTargetServer) {
             QueueMetrics.recordTick()
             SafeQueueTick.tickSafe(this, "cleanup") { cleanup.tick() }
