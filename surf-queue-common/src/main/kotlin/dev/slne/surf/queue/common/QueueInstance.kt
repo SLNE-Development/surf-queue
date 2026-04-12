@@ -1,11 +1,11 @@
 package dev.slne.surf.queue.common
 
-import dev.slne.surf.queue.common.queue.AbstractQueue
-import dev.slne.surf.queue.common.queue.tick.QueueTicker
-import dev.slne.surf.queue.common.queue.RedisQueueService
-import dev.slne.surf.queue.common.redis.RedisInstance
 import dev.slne.surf.api.core.component.SurfComponentApi
 import dev.slne.surf.api.core.util.requiredService
+import dev.slne.surf.queue.common.queue.AbstractQueue
+import dev.slne.surf.queue.common.queue.RedisQueueService
+import dev.slne.surf.queue.common.queue.tick.QueueTicker
+import dev.slne.surf.queue.common.redis.RedisInstance
 import org.jetbrains.annotations.MustBeInvokedByOverriders
 
 /**
@@ -24,7 +24,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     protected abstract val componentOwner: Any
 
     /**
-     * Connects to Redis, fetches existing queues, and loads all [dev.slne.surf.surfapi.shared.api.component.SurfComponent]s.
+     * Connects to Redis, fetches existing queues, and loads all [dev.slne.surf.api.shared.api.component.SurfComponent]s.
      * Subclasses **must** call `super.load()`.
      */
     @MustBeInvokedByOverriders
@@ -35,7 +35,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     }
 
     /**
-     * Enables all [dev.slne.surf.surfapi.shared.api.component.SurfComponent]s. Subclasses **must** call `super.enable()`.
+     * Enables all [dev.slne.surf.api.shared.api.component.SurfComponent]s. Subclasses **must** call `super.enable()`.
      */
     @MustBeInvokedByOverriders
     open suspend fun enable() {
@@ -43,7 +43,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     }
 
     /**
-     * Stops the [QueueTicker], disables all [dev.slne.surf.surfapi.shared.api.component.SurfComponent]s, and disconnects
+     * Stops the [QueueTicker], disables all [dev.slne.surf.api.shared.api.component.SurfComponent]s, and disconnects
      * from Redis. Subclasses **must** call `super.disable()`.
      */
     @MustBeInvokedByOverriders

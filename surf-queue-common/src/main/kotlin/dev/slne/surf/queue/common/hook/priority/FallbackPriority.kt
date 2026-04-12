@@ -1,8 +1,8 @@
 package dev.slne.surf.queue.common.hook.priority
 
-import dev.slne.surf.surfapi.shared.api.component.ComponentMeta
-import dev.slne.surf.surfapi.shared.api.component.requirement.ConditionalOnMissingComponent
-import java.util.UUID
+import dev.slne.surf.api.shared.api.component.SurfComponentMeta
+import dev.slne.surf.api.shared.api.component.requirement.ConditionalOnMissingComponent
+import java.util.*
 
 /**
  * Default [PriorityHook] implementation that always returns priority `0`.
@@ -10,7 +10,7 @@ import java.util.UUID
  * Activated automatically by `@ConditionalOnMissingComponent` when no other
  * [PriorityHook] (e.g., [LuckpermsPriorityHook]) is available.
  */
-@ComponentMeta
+@SurfComponentMeta
 @ConditionalOnMissingComponent(PriorityHook::class)
 class FallbackPriority : PriorityHook {
     override suspend fun getPriority(uuid: UUID): Int = 0

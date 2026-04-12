@@ -1,6 +1,6 @@
 package dev.slne.surf.queue.api
 
-import dev.slne.surf.surfapi.shared.api.annotation.InternalAPIMarker
+import dev.slne.surf.api.shared.api.annotation.InternalAPIMarker
 
 /**
  * Opt-in annotation marking internal surf-queue APIs that are not intended for
