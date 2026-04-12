@@ -1,11 +1,10 @@
-package dev.slne.surf.queue.common.queue.codec
+package dev.slne.surf.queue.common.queue.entry
 
-import dev.slne.surf.queue.common.queue.QueueEntry
 import dev.slne.surf.redis.libs.redisson.client.codec.BaseCodec
 import dev.slne.surf.redis.libs.redisson.client.protocol.Decoder
 import dev.slne.surf.redis.libs.redisson.client.protocol.Encoder
 import dev.slne.surf.redis.shaded.io.netty.buffer.Unpooled
-import java.util.*
+import java.util.UUID
 
 class QueueEntryCodec : BaseCodec() {
     companion object {

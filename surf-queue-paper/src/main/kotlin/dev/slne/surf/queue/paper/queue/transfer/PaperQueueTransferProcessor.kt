@@ -2,7 +2,7 @@ package dev.slne.surf.queue.paper.queue.transfer
 
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.util.sendText
-import dev.slne.surf.queue.common.queue.QueueEntry
+import dev.slne.surf.queue.common.queue.entry.QueueEntry
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueScore
 import dev.slne.surf.queue.common.queue.RedisQueueStore

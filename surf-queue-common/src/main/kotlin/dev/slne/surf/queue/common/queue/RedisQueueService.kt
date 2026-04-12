@@ -17,7 +17,7 @@ class RedisQueueService : SurfQueueService {
         .expireAfterWrite(Duration.ofSeconds(QUEUE_REFRESH_INTERVAL_SECONDS * 4L))
         .build<String, AbstractQueue> { serverName -> QueueInstance.get().createQueue(serverName) }
 
-    override fun get(serverName: String) = queues.get(serverName)
+    override fun getQueueByName(serverName: String) = queues.get(serverName)
     fun getAll() = queues.asMap().values
 
     fun delete(serverName: String) = queues.invalidate(serverName)
@@ -28,7 +28,7 @@ class RedisQueueService : SurfQueueService {
                 KeysScanOptions.defaults()
                     .pattern(RedisQueueKeys.EPOCH_MS_KEY_PATTERN)
             ).map(::extractServerName)
-            .collect(::get)
+            .collect(::getQueueByName)
     }
 
     private fun extractServerName(key: String) = key

@@ -30,7 +30,7 @@ fun CommandAPICommand.queueEnqueue() = subcommand("enqueue") {
         val priority: Int? by arguments
 
         val serverName = server?.name ?: SurfServer.current().name
-        val queue = RedisQueueService.get().get(serverName)
+        val queue = RedisQueueService.get().getQueueByName(serverName)
 
         val enqueued = priority?.let { queue.enqueue(uuid, it) } ?: queue.enqueue(uuid)
         if (enqueued) {
