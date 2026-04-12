@@ -1,9 +1,9 @@
 package dev.slne.surf.queue.paper.metrics
 
+import dev.slne.surf.api.core.util.logger
+import dev.slne.surf.api.paper.api.metrics.Metrics
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.plugin
-import dev.slne.surf.surfapi.bukkit.api.metrics.Metrics
-import dev.slne.surf.surfapi.core.api.util.logger
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicLong
 
@@ -56,7 +56,9 @@ object QueueBstatsIntegration {
         metrics.addCustomChart(Metrics.AdvancedPie("transfers_per_queue") {
             try {
                 RedisQueueService.get().getAll()
-                    .associate { it.serverName to QueueMetrics.getTransfersFor(it.serverName).toInt() }
+                    .associate {
+                        it.serverName to QueueMetrics.getTransfersFor(it.serverName).toInt()
+                    }
                     .filterValues { it > 0 }
             } catch (_: Exception) {
                 emptyMap()

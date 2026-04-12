@@ -4,8 +4,8 @@ import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.QueueTicker
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.common.redis.RedisInstance
-import dev.slne.surf.surfapi.core.api.component.SurfComponentApi
-import dev.slne.surf.surfapi.core.api.util.requiredService
+import dev.slne.surf.api.core.component.SurfComponentApi
+import dev.slne.surf.api.core.util.requiredService
 import org.jetbrains.annotations.MustBeInvokedByOverriders
 
 abstract class QueueInstance { // Implementations are responsible for starting the queue ticker task

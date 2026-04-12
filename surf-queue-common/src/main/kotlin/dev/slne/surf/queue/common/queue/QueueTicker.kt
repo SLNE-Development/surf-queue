@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.queue.common.queue.tick.SafeQueueTick
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.seconds
 

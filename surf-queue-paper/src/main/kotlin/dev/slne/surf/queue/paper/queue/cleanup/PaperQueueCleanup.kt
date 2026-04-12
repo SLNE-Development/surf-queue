@@ -4,7 +4,7 @@ import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.queue.paper.queue.PaperQueueImpl
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import java.time.Instant
 import java.util.UUID
 import kotlin.collections.iterator

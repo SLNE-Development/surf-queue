@@ -1,10 +1,10 @@
 package dev.slne.surf.queue.paper.hook.startup
 
-import dev.slne.surf.surfapi.shared.api.component.ComponentMeta
-import dev.slne.surf.surfapi.shared.api.component.requirement.DependsOnClass
+import dev.slne.surf.api.shared.api.component.SurfComponentMeta
+import dev.slne.surf.api.shared.api.component.requirement.DependsOnClass
 import top.polar.api.loader.LoaderApi
 
-@ComponentMeta
+@SurfComponentMeta
 @DependsOnClass(LoaderApi::class)
 class PolarQueueStartHook : QueueStartHook() {
 

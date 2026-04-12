@@ -1,6 +1,6 @@
 package dev.slne.surf.queue.paper.permission
 
-import dev.slne.surf.surfapi.bukkit.api.permission.PermissionRegistry
+import dev.slne.surf.api.paper.permission.PermissionRegistry
 
 object PaperQueuePermissions : PermissionRegistry() {
     private const val PREFIX = "surf.queue."

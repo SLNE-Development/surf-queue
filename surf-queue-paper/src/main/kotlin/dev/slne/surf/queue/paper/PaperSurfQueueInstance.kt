@@ -10,7 +10,7 @@ import dev.slne.surf.queue.paper.hook.startup.QueueStartHook
 import dev.slne.surf.queue.paper.listener.PlayerKickedDueToFullServerListener
 import dev.slne.surf.queue.paper.metrics.QueueMetricsLogger
 import dev.slne.surf.queue.paper.queue.PaperQueueImpl
-import dev.slne.surf.surfapi.bukkit.api.event.register
+import dev.slne.surf.api.paper.event.register
 
 @AutoService(QueueInstance::class)
 class PaperSurfQueueInstance : QueueInstance() {

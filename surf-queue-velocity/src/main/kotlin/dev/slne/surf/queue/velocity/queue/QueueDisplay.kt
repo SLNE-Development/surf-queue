@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.velocity.util.toVelocityPlayer
-import dev.slne.surf.surfapi.core.api.messages.adventure.buildText
+import dev.slne.surf.api.core.messages.adventure.buildText
 import it.unimi.dsi.fastutil.objects.ObjectList
 import java.util.*
 

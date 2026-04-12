@@ -9,7 +9,7 @@ import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import net.kyori.adventure.text.Component
 import java.time.Duration
 import java.time.Instant

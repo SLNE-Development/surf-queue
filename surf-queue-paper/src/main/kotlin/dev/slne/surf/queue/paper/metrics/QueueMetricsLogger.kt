@@ -2,7 +2,7 @@ package dev.slne.surf.queue.paper.metrics
 
 import com.github.shynixn.mccoroutine.folia.launch
 import dev.slne.surf.queue.paper.plugin
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive

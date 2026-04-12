@@ -5,7 +5,7 @@ import com.velocitypowered.api.event.connection.DisconnectEvent
 import com.velocitypowered.api.event.connection.PostLoginEvent
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.velocity.queue.VelocityQueueImpl
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 

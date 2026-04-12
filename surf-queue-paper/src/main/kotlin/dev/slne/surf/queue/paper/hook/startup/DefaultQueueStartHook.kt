@@ -1,9 +1,9 @@
 package dev.slne.surf.queue.paper.hook.startup
 
-import dev.slne.surf.surfapi.shared.api.component.ComponentMeta
-import dev.slne.surf.surfapi.shared.api.component.requirement.ConditionalOnMissingComponent
+import dev.slne.surf.api.shared.api.component.SurfComponentMeta
+import dev.slne.surf.api.shared.api.component.requirement.ConditionalOnMissingComponent
 
-@ComponentMeta
+@SurfComponentMeta
 @ConditionalOnMissingComponent(QueueStartHook::class)
 class DefaultQueueStartHook : QueueStartHook() {
 

@@ -3,11 +3,11 @@ package dev.slne.surf.queue.paper.commands.sub
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.paper.command.executors.anyExecutorSuspend
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.queue.paper.metrics.QueueMetricsLogger
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
-import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
-import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 
 fun CommandAPICommand.metricsCommand() = subcommand("metrics") {
     withPermission(PaperQueuePermissions.COMMAND_METRICS)

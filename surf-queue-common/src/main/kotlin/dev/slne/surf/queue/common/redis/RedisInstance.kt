@@ -2,7 +2,7 @@ package dev.slne.surf.queue.common.redis
 
 import com.google.auto.service.AutoService
 import dev.slne.surf.redis.RedisApi
-import dev.slne.surf.surfapi.core.api.util.requiredService
+import dev.slne.surf.api.core.util.requiredService
 import net.kyori.adventure.util.Services
 import org.jetbrains.annotations.MustBeInvokedByOverriders
 

@@ -7,8 +7,8 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.paper.command.argument.surfBackendServerArgument
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
-import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
-import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
+import dev.slne.surf.api.paper.command.executors.anyExecutorSuspend
+import dev.slne.surf.api.core.messages.adventure.sendText
 
 fun CommandAPICommand.queuePause() = subcommand("pause") {
     withPermission(PaperQueuePermissions.COMMAND_PAUSE)

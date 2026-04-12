@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.common.queue.tick
 
 import dev.slne.surf.queue.common.queue.AbstractQueue
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import kotlin.coroutines.cancellation.CancellationException
 
 object SafeQueueTick {

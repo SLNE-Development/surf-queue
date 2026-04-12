@@ -5,14 +5,14 @@ import dev.jorel.commandapi.arguments.AsyncPlayerProfileArgument
 import dev.jorel.commandapi.kotlindsl.argument
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.paper.command.executors.anyExecutorSuspend
+import dev.slne.surf.api.paper.command.util.awaitAsyncPlayerProfile
+import dev.slne.surf.api.paper.command.util.idOrThrow
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.paper.command.argument.surfBackendServerArgument
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
-import dev.slne.surf.surfapi.bukkit.api.command.executors.anyExecutorSuspend
-import dev.slne.surf.surfapi.bukkit.api.command.util.awaitAsyncPlayerProfile
-import dev.slne.surf.surfapi.bukkit.api.command.util.idOrThrow
-import dev.slne.surf.surfapi.core.api.messages.adventure.sendText
 import java.time.Duration
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
@@ -107,7 +107,8 @@ fun CommandAPICommand.queueInfo() = subcommand("info") {
             if (lastSeen != null) {
                 appendNewline {
                     val lastSeenAt = Instant.ofEpochMilli(lastSeen)
-                    val timeSinceLastSeen = Duration.between(lastSeenAt, Instant.now()).toSeconds().seconds
+                    val timeSinceLastSeen =
+                        Duration.between(lastSeenAt, Instant.now()).toSeconds().seconds
 
                     appendSuccessPrefix()
                     variableKey("Last seen: ")

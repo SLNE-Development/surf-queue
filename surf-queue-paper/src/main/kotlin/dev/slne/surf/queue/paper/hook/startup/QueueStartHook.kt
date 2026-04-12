@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.paper.hook.startup
 
-import dev.slne.surf.surfapi.core.api.component.AbstractComponent
-import dev.slne.surf.surfapi.core.api.component.surfComponentApi
+import dev.slne.surf.api.core.component.AbstractComponent
+import dev.slne.surf.api.core.component.surfComponentApi
 import java.util.concurrent.ConcurrentLinkedQueue
 
 abstract class QueueStartHook : AbstractComponent() {

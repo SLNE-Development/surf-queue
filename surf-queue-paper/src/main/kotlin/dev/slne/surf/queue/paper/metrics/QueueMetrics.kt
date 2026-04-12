@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.paper.metrics
 
 import dev.slne.surf.queue.common.queue.RedisQueueService
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 

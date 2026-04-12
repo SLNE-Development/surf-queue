@@ -1,7 +1,7 @@
 package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.queue.common.redis.redisApi
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import kotlinx.coroutines.future.await
 
 class RedisQueueLockManager(private val keys: RedisQueueKeys) {

@@ -5,7 +5,7 @@ import net.luckperms.api.LuckPermsProvider
 import net.luckperms.api.node.NodeType
 import java.util.*
 
-//@ComponentMeta
+//@SurfComponentMeta
 //@DependsOnClass(LuckPerms::class)
 object LuckpermsPriorityHook : PriorityHook {
     //    companion object {

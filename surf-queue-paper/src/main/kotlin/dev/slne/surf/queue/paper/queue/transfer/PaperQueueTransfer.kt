@@ -6,7 +6,7 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
 import dev.slne.surf.queue.paper.config.SurfQueueConfig
 import dev.slne.surf.queue.paper.listener.PlayerKickedDueToFullServerListener
-import dev.slne.surf.surfapi.core.api.util.logger
+import dev.slne.surf.api.core.util.logger
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import net.kyori.adventure.text.Component
