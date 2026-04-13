@@ -3,8 +3,7 @@ name: Publish to Maven & Create GitHub Release
 on:
   push:
     branches:
-      - master
-      - version/**
+      - 'version/**'
   workflow_dispatch:
 
 env:
@@ -18,7 +17,6 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: production
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@v2
