@@ -3,6 +3,7 @@ package dev.slne.surf.queue.paper.commands.sub
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.pagination.Pagination
@@ -12,9 +13,13 @@ import dev.slne.surf.core.api.paper.command.argument.surfBackendServerArgument
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
 import it.unimi.dsi.fastutil.objects.Object2IntMap
+import net.kyori.adventure.text.format.TextDecoration
 import java.util.*
 
 private val pagination = Pagination<Object2IntMap.Entry<UUID>> {
+    title {
+        primary("Warteschlange".toSmallCaps(), TextDecoration.BOLD)
+    }
     rowRenderer { value, _ ->
         listOf(buildText {
             val uuid = value.key
