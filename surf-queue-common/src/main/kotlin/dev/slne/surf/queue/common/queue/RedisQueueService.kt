@@ -14,7 +14,7 @@ import java.time.Duration
 @AutoService(SurfQueueService::class)
 class RedisQueueService : SurfQueueService {
     private val queues = Caffeine.newBuilder()
-        .expireAfterWrite(Duration.ofSeconds(QUEUE_REFRESH_INTERVAL_SECONDS * 4L))
+        .expireAfterAccess(Duration.ofSeconds(QUEUE_REFRESH_INTERVAL_SECONDS * 4L))
         .build<String, AbstractQueue> { serverName -> QueueInstance.get().createQueue(serverName) }
 
     override fun getQueueByName(serverName: String) = queues.get(serverName)
