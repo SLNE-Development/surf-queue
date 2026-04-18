@@ -4,6 +4,7 @@ import dev.slne.surf.api.core.component.SurfComponentApi
 import dev.slne.surf.api.core.util.requiredService
 import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.RedisQueueService
+import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.common.queue.tick.QueueTicker
 import dev.slne.surf.queue.common.redis.RedisInstance
 import org.jetbrains.annotations.MustBeInvokedByOverriders
@@ -22,6 +23,7 @@ import org.jetbrains.annotations.MustBeInvokedByOverriders
 abstract class QueueInstance { // Implementations are responsible for starting the queue ticker task
     /** The platform-specific owner object used with [SurfComponentApi]. */
     protected abstract val componentOwner: Any
+    abstract val queueScheduler: QueueScheduler
 
     /**
      * Connects to Redis, fetches existing queues, and loads all [dev.slne.surf.api.shared.api.component.SurfComponent]s.
@@ -30,7 +32,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     @MustBeInvokedByOverriders
     open suspend fun load() {
         RedisInstance.get().connect()
-        RedisQueueService.get().fetchFromRedis()
+        RedisQueueService.get().startRefreshing()
         SurfComponentApi.load(componentOwner)
     }
 
@@ -49,6 +51,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     @MustBeInvokedByOverriders
     open suspend fun disable() {
         QueueTicker.dispose()
+        RedisQueueService.get().close()
 
         SurfComponentApi.disable(componentOwner)
         RedisInstance.get().disconnect()

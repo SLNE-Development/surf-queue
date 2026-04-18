@@ -1,17 +1,17 @@
 package dev.slne.surf.queue.paper.queue.cleanup
 
+import dev.slne.surf.api.core.util.logger
+import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.queue.paper.queue.PaperQueueImpl
-import dev.slne.surf.api.core.util.logger
 import java.time.Instant
-import java.util.UUID
-import kotlin.collections.iterator
+import java.util.*
 import kotlin.coroutines.cancellation.CancellationException
 
 class PaperQueueCleanup(
-    private val queue: PaperQueueImpl,
+    private val queue: AbstractQueue,
     private val store: RedisQueueStore,
     private val lockManager: RedisQueueLockManager
 ) {
@@ -25,8 +25,8 @@ class PaperQueueCleanup(
         }
     }
 
-    suspend fun tick() {
-        if (queue.tickCount % CLEANUP_INTERVAL_TICKS == 0L) {
+    suspend fun tick(tickCount: Long) {
+        if (tickCount % CLEANUP_INTERVAL_TICKS == 0L) {
             lockManager.withCleanupLock {
                 cleanupExpiredEntries()
             }

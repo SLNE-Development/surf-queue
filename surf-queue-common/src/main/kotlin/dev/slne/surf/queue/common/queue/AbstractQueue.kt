@@ -55,10 +55,6 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
      */
     private val enqueueSequence = AtomicInteger(0)
 
-    /** Number of times [tick] has been called since creation. */
-    var tickCount = 0
-        private set
-
     companion object {
         private val log = logger()
 
@@ -80,14 +76,6 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
                 RedisQueueScore.MAX_PRIORITY
             }
         }
-    }
-
-    /**
-     * Increments [tickCount]. Subclasses that override this **must** invoke `super.tick()`.
-     */
-    @MustBeInvokedByOverriders
-    open suspend fun tick() {
-        tickCount++
     }
 
     override suspend fun enqueue(uuid: UUID): Boolean {
