@@ -3,11 +3,13 @@ package dev.slne.surf.queue.common.queue
 import dev.slne.surf.api.core.util.runAtFixedRate
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.common.queue.tick.SafeQueueTick
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.MustBeInvokedByOverriders
 import java.lang.AutoCloseable
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 
 abstract class AbstractTickableQueue(

@@ -4,7 +4,7 @@ import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.queue.paper.queue.cleanup.PaperQueueCleanup
 
-class PaperQueueImpl(serverName: String) : AbstractQueue(serverName) {
+class PaperQueueImpl(serverName: String) : AbstractQueue(serverName), PaperQueueCommon {
     private val cleanup = PaperQueueCleanup(this, store, lockManager)
 
     override fun onEnqueued() {
@@ -15,11 +15,11 @@ class PaperQueueImpl(serverName: String) : AbstractQueue(serverName) {
         QueueMetrics.recordDequeue(serverName)
     }
 
-    suspend fun delete() {
+    override suspend fun delete() {
         store.deleteAll()
     }
 
-    suspend fun forceCleanup() {
+    override suspend fun forceCleanup() {
         cleanup.cleanupExpiredEntries()
     }
 }

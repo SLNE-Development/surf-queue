@@ -25,7 +25,7 @@ class QueueDisplay(private val queue: VelocityQueueImpl) {
 
     private suspend fun updateActionBars() {
         val uuidsWithPosition = cachedUuidsWithPosition ?: return
-        val spinnerIndex = (queue.tickCount % spinner.size)
+        val spinnerIndex = (queue.tickCount % spinner.size).toInt()
         val spinnerEnd = spinner[spinnerIndex]
         val spinnerStart = spinnerReversed[spinnerIndex]
         val paused = queue.isPaused()

@@ -2,12 +2,11 @@ package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.queue.api.SurfQueue
-import dev.slne.surf.queue.common.hook.priority.LuckpermsPriorityHook
+import dev.slne.surf.queue.common.priority.LuckpermsPriorityResolver
 import dev.slne.surf.queue.common.queue.entry.QueueEntry
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.ObjectList
-import org.jetbrains.annotations.MustBeInvokedByOverriders
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
@@ -79,7 +78,7 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
     }
 
     override suspend fun enqueue(uuid: UUID): Boolean {
-        val priority = LuckpermsPriorityHook.getPriority(uuid)
+        val priority = LuckpermsPriorityResolver.getPriority(uuid)
         return enqueue(uuid, priority)
     }
 

@@ -25,6 +25,6 @@ class VelocitySurfQueueInstance : QueueInstance() {
     }
 
     override fun createQueue(serverName: String): AbstractQueue {
-        return VelocityQueueImpl(serverName)
+        return VelocityQueueImpl(serverName, queueScheduler)
     }
 }

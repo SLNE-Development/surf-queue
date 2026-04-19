@@ -9,7 +9,7 @@ import dev.slne.surf.queue.paper.queue.transfer.PaperQueueTransferProcessor
 import kotlin.time.Duration.Companion.minutes
 
 class PaperOwnedQueueImpl(serverName: String, scheduler: QueueScheduler) :
-    AbstractTickableQueue(serverName, scheduler) {
+    AbstractTickableQueue(serverName, scheduler), PaperQueueCommon {
     private val transferProcessor = PaperQueueTransferProcessor(serverName, store, lockManager, GRACE_PERIOD_MS)
     private val cleanup = PaperQueueCleanup(this, store, lockManager)
 
@@ -32,11 +32,11 @@ class PaperOwnedQueueImpl(serverName: String, scheduler: QueueScheduler) :
         SafeQueueTick.tickSafe(this, "transfers") { transferProcessor.tick() }
     }
 
-    suspend fun forceCleanup() {
+    override suspend fun forceCleanup() {
         cleanup.cleanupExpiredEntries()
     }
 
-    suspend fun delete() {
+    override suspend fun delete() {
         store.deleteAll()
     }
 }

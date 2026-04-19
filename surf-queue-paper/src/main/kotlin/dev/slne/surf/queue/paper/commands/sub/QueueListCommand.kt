@@ -11,14 +11,12 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.paper.command.argument.surfBackendServerArgument
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
-import it.unimi.dsi.fastutil.objects.Object2IntMap
 import java.util.*
 
-private val pagination = Pagination<Object2IntMap.Entry<UUID>> {
-    rowRenderer { value, _ ->
+private val pagination = Pagination<UUID> {
+    rowRenderer { uuid, i ->
         listOf(buildText {
-            val uuid = value.key
-            val position = value.intValue
+            val position = i + 1
             variableKey(position)
             info("—")
             variableValue(uuid.toString())
@@ -34,7 +32,7 @@ fun CommandAPICommand.queueList() = subcommand("list") {
         val server: SurfServer? by arguments
         val serverName = server?.name ?: SurfServer.current().name
         val queue = RedisQueueService.get().getQueueByName(serverName)
-        val entries = queue.getAllUuidsWithPosition()
+        val entries = queue.getAllUuidsOrderedByPosition()
 
         if (entries.isEmpty()) {
             sender.sendText {

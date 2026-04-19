@@ -1,11 +1,12 @@
 package dev.slne.surf.queue.velocity.queue
 
-import dev.slne.surf.queue.common.queue.AbstractQueue
+import dev.slne.surf.queue.common.queue.AbstractTickableQueue
+import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.common.queue.tick.SafeQueueTick
 import java.time.Instant
 import java.util.*
 
-class VelocityQueueImpl(serverName: String) : AbstractQueue(serverName) {
+class VelocityQueueImpl(serverName: String, scheduler: QueueScheduler) : AbstractTickableQueue(serverName, scheduler) {
     val display = QueueDisplay(this)
 
     suspend fun markPlayerReconnected(uuid: UUID) {

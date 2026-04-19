@@ -29,7 +29,6 @@ object QueuePlayerListener {
                 }
             }
         }
-
     }
 
     @Subscribe

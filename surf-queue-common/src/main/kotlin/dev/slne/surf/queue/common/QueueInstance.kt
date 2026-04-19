@@ -5,7 +5,6 @@ import dev.slne.surf.api.core.util.requiredService
 import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
-import dev.slne.surf.queue.common.queue.tick.QueueTicker
 import dev.slne.surf.queue.common.redis.RedisInstance
 import org.jetbrains.annotations.MustBeInvokedByOverriders
 
@@ -51,7 +50,6 @@ abstract class QueueInstance { // Implementations are responsible for starting t
      */
     @MustBeInvokedByOverriders
     open suspend fun disable() {
-        QueueTicker.dispose()
         RedisQueueService.get().close()
 
         SurfComponentApi.disable(componentOwner)

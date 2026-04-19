@@ -8,6 +8,9 @@ import dev.slne.surf.api.shared.api.component.requirement.ConditionalOnMissingCo
 class DefaultQueueStartHook : QueueStartHook() {
 
     override suspend fun onEnable() {
+        repeat(20) {
+            println("Hooking into default")
+        }
         runServerReadyTasks()
     }
 }
