@@ -1,15 +1,16 @@
 package dev.slne.surf.queue.paper.queue.transfer
 
+import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.util.sendText
-import dev.slne.surf.queue.common.queue.entry.QueueEntry
+import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueScore
 import dev.slne.surf.queue.common.queue.RedisQueueStore
+import dev.slne.surf.queue.common.queue.entry.QueueEntry
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
-import dev.slne.surf.api.core.util.logger
 import net.kyori.adventure.text.Component
 import java.time.Duration
 import java.time.Instant
@@ -33,6 +34,7 @@ class PaperQueueTransferProcessor(
     }
 
     suspend fun tick() {
+        if (!QueueInstance.get().isLoaded) return
         if (store.isPaused()) return
 
         try {

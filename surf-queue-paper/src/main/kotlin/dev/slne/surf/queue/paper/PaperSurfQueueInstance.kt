@@ -6,7 +6,6 @@ import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
-import dev.slne.surf.queue.common.queue.tick.QueueTicker
 import dev.slne.surf.queue.paper.commands.queueCommand
 import dev.slne.surf.queue.paper.config.SurfQueueConfig
 import dev.slne.surf.queue.paper.hook.startup.QueueStartHook
@@ -21,11 +20,14 @@ class PaperSurfQueueInstance : QueueInstance() {
     override val queueScheduler =
         QueueScheduler(workerCount = 1) // Only one tickable queue max, so 1 worker is enough
 
+    override var isLoaded: Boolean = false
+        private set
+
     override suspend fun load() {
         SurfQueueConfig.init()
         super.load()
         QueueStartHook.get().onServerReady {
-            QueueTicker.start()
+            isLoaded = true
         }
     }
 

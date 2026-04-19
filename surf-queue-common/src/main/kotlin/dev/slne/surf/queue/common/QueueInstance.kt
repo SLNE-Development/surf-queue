@@ -24,6 +24,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     /** The platform-specific owner object used with [SurfComponentApi]. */
     protected abstract val componentOwner: Any
     abstract val queueScheduler: QueueScheduler
+    abstract val isLoaded: Boolean
 
     /**
      * Connects to Redis, fetches existing queues, and loads all [dev.slne.surf.api.shared.api.component.SurfComponent]s.
