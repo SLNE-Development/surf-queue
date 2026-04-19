@@ -3,6 +3,7 @@ package dev.slne.surf.queue.common.queue
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.auto.service.AutoService
 import dev.slne.surf.api.core.util.runAtFixedRate
+import dev.slne.surf.api.core.util.withAutoCloseOnRemoval
 import dev.slne.surf.queue.api.InternalSurfQueueApi
 import dev.slne.surf.queue.api.service.SurfQueueService
 import dev.slne.surf.queue.common.QueueInstance
@@ -20,11 +21,7 @@ import kotlin.time.Duration.Companion.seconds
 class RedisQueueService : SurfQueueService, AutoCloseable {
     private val queues = Caffeine.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(QUEUE_REFRESH_INTERVAL_SECONDS * 4L))
-        .removalListener<String, AbstractQueue> { _, queue, _ ->
-            if (queue is AutoCloseable) {
-                queue.close()
-            }
-        }
+        .withAutoCloseOnRemoval()
         .build<String, AbstractQueue> { serverName ->
             QueueInstance.get().createQueue(serverName).also { queue ->
                 if (queue is AbstractTickableQueue) {
@@ -63,6 +60,7 @@ class RedisQueueService : SurfQueueService, AutoCloseable {
 
     override fun close() {
         scope.cancel("RedisQueueService closed")
+        queues.invalidateAll()
     }
 
     companion object {
