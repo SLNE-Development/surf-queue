@@ -14,6 +14,7 @@ import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
 import java.util.*
 
 private val pagination = Pagination<UUID> {
+    title { primary("Queue list") }
     rowRenderer { uuid, i ->
         listOf(buildText {
             val position = i + 1
