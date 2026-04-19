@@ -5,7 +5,7 @@ import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.paper.metrics.QueueMetrics
-import dev.slne.surf.queue.paper.queue.PaperQueueImpl
+import dev.slne.surf.queue.paper.queue.PaperOwnedQueueImpl
 import java.time.Instant
 import java.util.*
 import kotlin.coroutines.cancellation.CancellationException
@@ -21,7 +21,7 @@ class PaperQueueCleanup(
 
         @JvmStatic
         private fun isExpired(now: Long, lastSeenTime: Long): Boolean {
-            return now - lastSeenTime >= PaperQueueImpl.GRACE_PERIOD_MS
+            return now - lastSeenTime >= PaperOwnedQueueImpl.GRACE_PERIOD_MS
         }
     }
 
