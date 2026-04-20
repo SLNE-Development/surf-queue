@@ -1,6 +1,7 @@
 package dev.slne.surf.queue.paper.queue.transfer
 
 import dev.slne.surf.api.core.util.logger
+import dev.slne.surf.api.core.util.mutableObjectSetOf
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.common.util.sendText
 import dev.slne.surf.queue.common.QueueInstance
@@ -77,9 +78,15 @@ class PaperQueueTransferProcessor(
         tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>
     ): Int {
         var transferred = 0
+        var attempts = 0
+        val maxAttempts = maxTransfers * 3
+        val seen = mutableObjectSetOf<UUID>()
 
-        while (transferred < maxTransfers) {
+        while (transferred < maxTransfers && attempts < maxAttempts) {
             val uuid = store.top1() ?: break
+            if (!seen.add(uuid)) continue
+
+            attempts++
 
             val entry = store.getMeta(uuid)
             if (entry == null) {
@@ -100,7 +107,7 @@ class PaperQueueTransferProcessor(
 
                     TransferAction.PLAYER_NOT_FOUND,
                     TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER -> {
-                        handlePlayerNotFound(uuid, entry)
+                        handlePlayerNotFound(uuid, entry, action)
                     }
 
                     TransferAction.PLAYER_ALREADY_ON_SERVER -> {
@@ -179,7 +186,7 @@ class PaperQueueTransferProcessor(
         }
     }
 
-    private suspend fun handlePlayerNotFound(uuid: UUID, entry: QueueEntry) {
+    private suspend fun handlePlayerNotFound(uuid: UUID, entry: QueueEntry, action: TransferAction) {
         val now = Instant.now().toEpochMilli()
         val lastSeen = store.getLastSeen(uuid)
 
@@ -198,7 +205,7 @@ class PaperQueueTransferProcessor(
         QueueMetrics.recordGraceExpiry()
         QueueMetrics.recordDequeue(serverName)
         log.atInfo()
-            .log("Player %s removed from queue %s (offline > %dms)", uuid, serverName, gracePeriodMs)
+            .log("Player %s removed from queue %s (offline > %dms) (%s)", uuid, serverName, gracePeriodMs, action)
     }
 
     /**
