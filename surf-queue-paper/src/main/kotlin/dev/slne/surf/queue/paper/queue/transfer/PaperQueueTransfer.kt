@@ -68,7 +68,6 @@ class PaperQueueTransfer(
             }
         } catch (e: TimeoutCancellationException) {
             log.atWarning()
-                .withCause(e)
                 .log("Timed out waiting for player %s to connect to server %s", player.uuid, targetServer.name)
             return TransferAction.TIMEOUT to null
         }
