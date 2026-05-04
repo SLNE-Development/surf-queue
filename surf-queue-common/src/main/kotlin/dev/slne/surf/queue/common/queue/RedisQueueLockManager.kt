@@ -7,6 +7,7 @@ import dev.slne.surf.redis.libs.redisson.api.RPermitExpirableSemaphoreAsync
 import kotlinx.coroutines.*
 import kotlinx.coroutines.future.await
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -22,6 +23,9 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         private val CLEANUP_LEASE = 30.seconds
         private val CLEANUP_REFRESH = 10.seconds
     }
+
+    private class PermitLostException(label: String, serverName: String) :
+        Exception("Lost $label permit for $serverName (lease expired or released elsewhere)")
 
     init {
         transferSemaphore.trySetPermits(1)
@@ -60,49 +64,61 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         val permitId = semaphore.tryAcquireAsync(0, lease.inWholeMilliseconds, TimeUnit.MILLISECONDS).await()
             ?: return block(false)
 
-        return coroutineScope {
-            val refresher = launch(start = CoroutineStart.UNDISPATCHED) {
-                val outer = this
+        val permitLost = AtomicBoolean(false)
+
+        return try {
+            coroutineScope {
+                val outerScope = this
+                val refresher = launch(start = CoroutineStart.UNDISPATCHED) {
+                    try {
+                        runWithFixedDelay(delay = refreshEvery, initialDelay = refreshEvery) {
+                            val refreshed = try {
+                                semaphore.updateLeaseTimeAsync(permitId, lease.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+                                    .await()
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Throwable) {
+                                log.atWarning()
+                                    .withCause(e)
+                                    .log("Failed to refresh %s lease for %s", label, keys.serverName)
+                                false
+                            }
+
+                            if (!refreshed) {
+                                log.atWarning()
+                                    .log(
+                                        "Lost %s permit for %s (lease expired or released elsewhere)",
+                                        label,
+                                        keys.serverName
+                                    )
+                                permitLost.set(true)
+                                outerScope.cancel("$label permit lost for ${keys.serverName}")
+                            }
+                        }
+                    } catch (_: CancellationException) {
+                    }
+                }
+
                 try {
-                    runWithFixedDelay(delay = refreshEvery, initialDelay = refreshEvery) {
-                        val refreshed = try {
-                            semaphore.updateLeaseTimeAsync(permitId, lease.inWholeMilliseconds, TimeUnit.MILLISECONDS)
-                                .await()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Throwable) {
+                    block(true)
+                } finally {
+                    refresher.cancel()
+                    withContext(NonCancellable) {
+                        try {
+                            semaphore.tryReleaseAsync(permitId).await()
+                        } catch (e: Exception) {
                             log.atWarning()
                                 .withCause(e)
-                                .log("Failed to refresh %s lease for %s", label, keys.serverName)
-                            false
-                        }
-
-                        if (!refreshed) {
-                            log.atWarning()
-                                .log(
-                                    "Lost %s permit for %s (lease expired or released elsewhere)",
-                                    label,
-                                    keys.serverName
-                                )
-                            outer.cancel("$label permit lost")
+                                .log("Failed to release %s lock for %s", label, keys.serverName)
                         }
                     }
-                } catch (_: CancellationException) {
                 }
             }
-
-            try {
-                block(true)
-            } finally {
-                refresher.cancel()
-                try {
-                    semaphore.tryReleaseAsync(permitId).await()
-                } catch (e: Exception) {
-                    log.atWarning()
-                        .withCause(e)
-                        .log("Failed to release %s lock for %s", label, keys.serverName)
-                }
+        } catch (e: CancellationException) {
+            if (permitLost.get()) {
+                throw PermitLostException(label, keys.serverName)
             }
+            throw e
         }
     }
 }
