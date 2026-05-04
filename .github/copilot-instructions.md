@@ -101,7 +101,7 @@ SafeQueueTick.tickSafe(queue, "componentName") {
     // Synchronous work that should not crash the tick
 }
 
-SafeQueueTick.tickSafeWithTimeout(queue, "componentName", Duration.seconds(5)) {
+SafeQueueTick.tickSafeWithTimeout(queue, "componentName", 5.seconds) {
     // Suspend work with timeout protection
 }
 ```
