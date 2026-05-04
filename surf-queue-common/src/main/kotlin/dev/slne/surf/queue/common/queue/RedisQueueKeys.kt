@@ -9,8 +9,8 @@ data class RedisQueueKeys(
     val metaKey = "$QUEUE_PREFIX$serverName:meta"
     val retryCountKey = "$QUEUE_PREFIX$serverName:retry-count"
     val lastSeenKey = "$QUEUE_PREFIX$serverName:lastseen"
-    val transferLockKey = "$QUEUE_PREFIX$serverName:transfer-lock"
-    val cleanupLockKey = "$QUEUE_PREFIX$serverName:cleanup-lock"
+    val transferSemaphoreKey = "$QUEUE_PREFIX$serverName:transfer-semaphore"
+    val cleanupSemaphoreKey = "$QUEUE_PREFIX$serverName:cleanup-semaphore"
     val pausedKey = "$QUEUE_PREFIX$serverName:paused"
     val epochMsKey = "$QUEUE_PREFIX$serverName$EPOCH_MS_SUFFIX"
 
