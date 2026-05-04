@@ -2,6 +2,7 @@ package dev.slne.surf.queue.common.queue
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.auto.service.AutoService
+import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.api.core.util.runAtFixedRate
 import dev.slne.surf.api.core.util.withAutoCloseOnRemoval
 import dev.slne.surf.queue.api.InternalSurfQueueApi
@@ -14,6 +15,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.reactive.collect
 import java.lang.AutoCloseable
 import java.time.Duration
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(InternalSurfQueueApi::class)
@@ -21,7 +23,9 @@ import kotlin.time.Duration.Companion.seconds
 class RedisQueueService : SurfQueueService, AutoCloseable {
     private val queues = Caffeine.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(QUEUE_REFRESH_INTERVAL_SECONDS * 4L))
-        .withAutoCloseOnRemoval()
+        .withAutoCloseOnRemoval { key, value, cause ->
+            log.atInfo().log("Queue removed from cache: key={}, cause={}", key, cause)
+        }
         .build<String, AbstractQueue> { serverName ->
             QueueInstance.get().createQueue(serverName).also { queue ->
                 if (queue is AbstractTickableQueue) {
@@ -50,7 +54,15 @@ class RedisQueueService : SurfQueueService, AutoCloseable {
     fun startRefreshing() {
         require(refreshJob == null) { "Refresh job already started" }
         refreshJob = scope.runAtFixedRate(QUEUE_REFRESH_INTERVAL_SECONDS.seconds) {
-            fetchFromRedis()
+            try {
+                fetchFromRedis()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+
+                log.atWarning()
+                    .withCause(e)
+                    .log("Failed to refresh queues from Redis")
+            }
         }
     }
 
@@ -65,6 +77,7 @@ class RedisQueueService : SurfQueueService, AutoCloseable {
 
     companion object {
         const val QUEUE_REFRESH_INTERVAL_SECONDS = 30
+        private val log = logger()
         fun get() = SurfQueueService.instance as RedisQueueService
     }
 }
