@@ -24,7 +24,7 @@ class RedisQueueService : SurfQueueService, AutoCloseable {
     private val queues = Caffeine.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(QUEUE_REFRESH_INTERVAL_SECONDS * 4L))
         .withAutoCloseOnRemoval { key, value, cause ->
-            log.atInfo().log("Queue removed from cache: key={}, cause={}", key, cause)
+            log.atInfo().log("Queue removed from cache: key=%s, cause=%s", key, cause)
         }
         .build<String, AbstractQueue> { serverName ->
             QueueInstance.get().createQueue(serverName).also { queue ->
