@@ -7,6 +7,7 @@ import dev.slne.surf.queue.paper.metrics.QueueMetrics
 import dev.slne.surf.queue.paper.queue.cleanup.PaperQueueCleanup
 import dev.slne.surf.queue.paper.queue.transfer.PaperQueueTransferProcessor
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class PaperOwnedQueueImpl(serverName: String, scheduler: QueueScheduler) :
     AbstractTickableQueue(serverName, scheduler), PaperQueueCommon {
@@ -28,7 +29,7 @@ class PaperOwnedQueueImpl(serverName: String, scheduler: QueueScheduler) :
     override suspend fun tick() {
         super.tick()
         QueueMetrics.recordTick()
-        SafeQueueTick.tickSafe(this, "cleanup") { cleanup.tick(tickCount) }
+        SafeQueueTick.tickSafeWithTimeout(this, "cleanup", 10.seconds) { cleanup.tick(tickCount) }
         SafeQueueTick.tickSafe(this, "transfers") { transferProcessor.tick() }
     }
 

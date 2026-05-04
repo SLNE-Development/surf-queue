@@ -1,5 +1,6 @@
 package dev.slne.surf.queue.common.queue
 
+import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.api.core.util.runAtFixedRate
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.common.queue.tick.SafeQueueTick
@@ -16,6 +17,10 @@ abstract class AbstractTickableQueue(
     serverName: String,
     scheduler: QueueScheduler
 ) : AbstractQueue(serverName), AutoCloseable {
+    companion object {
+        private val log = logger()
+    }
+
     private val dispatcher = scheduler.dispatcherFor(serverName)
     private val tickScope = scheduler.scopeFor(serverName)
 
@@ -27,9 +32,24 @@ abstract class AbstractTickableQueue(
 
     fun startTicking(period: Duration = 1.seconds) {
         check(tickJob == null) { "Ticking already started" }
-        tickScope.runAtFixedRate(period) {
+
+        log.atInfo()
+            .log("Starting ticking for queue $serverName with period $period")
+
+        tickJob = tickScope.runAtFixedRate(period) {
             SafeQueueTick.tickSafe(this@AbstractTickableQueue, "heartbeat") {
                 tick()
+            }
+        }
+
+        tickJob?.invokeOnCompletion { cause ->
+            if (cause == null) {
+                log.atInfo()
+                    .log("Tick job completed normally for queue $serverName")
+            } else {
+                log.atWarning()
+                    .withCause(cause)
+                    .log("Tick job failed for queue $serverName")
             }
         }
     }
@@ -46,6 +66,9 @@ abstract class AbstractTickableQueue(
         withContext(dispatcher) { block() }
 
     override fun close() {
+        log.atInfo()
+            .log("Closing queue $serverName")
+
         tickJob?.cancel()
         tickScope.cancel("Ticking stopped for $serverName")
     }
