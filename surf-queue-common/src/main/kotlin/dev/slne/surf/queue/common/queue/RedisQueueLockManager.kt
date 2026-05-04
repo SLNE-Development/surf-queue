@@ -73,8 +73,11 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
                     try {
                         runWithFixedDelay(delay = refreshEvery, initialDelay = refreshEvery) {
                             val refreshed = try {
-                                semaphore.updateLeaseTimeAsync(permitId, lease.inWholeMilliseconds, TimeUnit.MILLISECONDS)
-                                    .await()
+                                semaphore.updateLeaseTimeAsync(
+                                    permitId,
+                                    lease.inWholeMilliseconds,
+                                    TimeUnit.MILLISECONDS
+                                ).await()
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Throwable) {
