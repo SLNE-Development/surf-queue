@@ -37,6 +37,17 @@ class PaperOwnedQueueImpl(serverName: String, scheduler: QueueScheduler) :
         cleanup.cleanupExpiredEntries()
     }
 
+    override suspend fun fix(): QueueFixResult {
+        val sizeBefore = store.size()
+        val wasPaused = store.isPaused()
+        val lockReset = lockManager.resetLocks()
+        store.setPaused(false)
+        cleanup.cleanupExpiredEntries()
+        val sizeAfter = store.size()
+
+        return QueueFixResult(sizeBefore, sizeAfter, wasPaused, lockReset)
+    }
+
     override suspend fun delete() {
         store.deleteAll()
     }

@@ -26,6 +26,20 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         cleanupSemaphore.trySetPermits(1)
     }
 
+    suspend fun resetLocks(): RedisQueueLockResetResult {
+        val transferDeleted = transferSemaphore.deleteAsync().await()
+        val cleanupDeleted = cleanupSemaphore.deleteAsync().await()
+        val transferInitialized = transferSemaphore.trySetPermits(1)
+        val cleanupInitialized = cleanupSemaphore.trySetPermits(1)
+
+        return RedisQueueLockResetResult(
+            transferDeleted = transferDeleted,
+            cleanupDeleted = cleanupDeleted,
+            transferInitialized = transferInitialized,
+            cleanupInitialized = cleanupInitialized
+        )
+    }
+
     suspend fun <T> withTransferLock(
         block: suspend (acquired: Boolean) -> T
     ): T = withSemaphore(
@@ -97,3 +111,10 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
             }
     }
 }
+
+data class RedisQueueLockResetResult(
+    val transferDeleted: Boolean,
+    val cleanupDeleted: Boolean,
+    val transferInitialized: Boolean,
+    val cleanupInitialized: Boolean
+)
