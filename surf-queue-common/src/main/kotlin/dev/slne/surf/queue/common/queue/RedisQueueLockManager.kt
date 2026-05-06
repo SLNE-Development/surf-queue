@@ -1,13 +1,11 @@
 package dev.slne.surf.queue.common.queue
 
 import dev.slne.surf.api.core.util.logger
-import dev.slne.surf.api.core.util.runWithFixedDelay
 import dev.slne.surf.queue.common.redis.redisApi
 import dev.slne.surf.redis.libs.redisson.api.RPermitExpirableSemaphoreAsync
 import kotlinx.coroutines.*
 import kotlinx.coroutines.future.await
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -19,13 +17,9 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         private val log = logger()
 
         private val TRANSFER_LEASE = 60.seconds
-        private val TRANSFER_REFRESH = 20.seconds
         private val CLEANUP_LEASE = 30.seconds
-        private val CLEANUP_REFRESH = 10.seconds
+        private val RELEASE_TIMEOUT = 5.seconds
     }
-
-    private class PermitLostException(label: String, serverName: String) :
-        Exception("Lost $label permit for $serverName (lease expired or released elsewhere)")
 
     init {
         transferSemaphore.trySetPermits(1)
@@ -37,7 +31,6 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
     ): T = withSemaphore(
         semaphore = transferSemaphore,
         lease = TRANSFER_LEASE,
-        refreshEvery = TRANSFER_REFRESH,
         label = "transfer",
         block = block
     )
@@ -45,7 +38,6 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
     suspend fun withCleanupLock(block: suspend () -> Unit) = withSemaphore(
         semaphore = cleanupSemaphore,
         lease = CLEANUP_LEASE,
-        refreshEvery = CLEANUP_REFRESH,
         label = "cleanup",
         block = { acquired ->
             if (acquired) {
@@ -57,71 +49,51 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
     private suspend fun <T> withSemaphore(
         semaphore: RPermitExpirableSemaphoreAsync,
         lease: Duration,
-        refreshEvery: Duration,
         label: String,
         block: suspend (acquired: Boolean) -> T
     ): T {
         val permitId = semaphore.tryAcquireAsync(0, lease.inWholeMilliseconds, TimeUnit.MILLISECONDS).await()
             ?: return block(false)
 
-        val permitLost = AtomicBoolean(false)
-
         return try {
-            coroutineScope {
-                val outerScope = this
-                val refresher = launch(start = CoroutineStart.UNDISPATCHED) {
-                    try {
-                        runWithFixedDelay(delay = refreshEvery, initialDelay = refreshEvery) {
-                            val refreshed = try {
-                                semaphore.updateLeaseTimeAsync(
-                                    permitId,
-                                    lease.inWholeMilliseconds,
-                                    TimeUnit.MILLISECONDS
-                                ).await()
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Throwable) {
-                                log.atWarning()
-                                    .withCause(e)
-                                    .log("Failed to refresh %s lease for %s", label, keys.serverName)
-                                false
-                            }
-
-                            if (!refreshed) {
-                                log.atWarning()
-                                    .log(
-                                        "Lost %s permit for %s (lease expired or released elsewhere)",
-                                        label,
-                                        keys.serverName
-                                    )
-                                permitLost.set(true)
-                                outerScope.cancel("$label permit lost for ${keys.serverName}")
-                            }
-                        }
-                    } catch (_: CancellationException) {
-                    }
-                }
-
-                try {
-                    block(true)
-                } finally {
-                    refresher.cancel()
-                    withContext(NonCancellable) {
-                        try {
-                            semaphore.tryReleaseAsync(permitId).await()
-                        } catch (e: Exception) {
-                            log.atWarning()
-                                .withCause(e)
-                                .log("Failed to release %s lock for %s", label, keys.serverName)
-                        }
-                    }
-                }
+            block(true)
+        } finally {
+            withContext(NonCancellable) {
+                releasePermit(semaphore, permitId, label)
             }
-        } catch (e: CancellationException) {
-            if (permitLost.get()) {
-                throw PermitLostException(label, keys.serverName)
-            }
-            throw e
         }
+    }
+
+    private suspend fun releasePermit(
+        semaphore: RPermitExpirableSemaphoreAsync,
+        permitId: String,
+        label: String
+    ) {
+        val releaseResult = withTimeoutOrNull(RELEASE_TIMEOUT) {
+            runCatching { semaphore.tryReleaseAsync(permitId).await() }
+        }
+
+        if (releaseResult == null) {
+            log.atWarning()
+                .log("Timed out releasing %s lock for %s", label, keys.serverName)
+            return
+        }
+
+        releaseResult
+            .onFailure { e ->
+                log.atWarning()
+                    .withCause(e)
+                    .log("Failed to release %s lock for %s", label, keys.serverName)
+            }
+            .onSuccess { released ->
+                if (!released) {
+                    log.atWarning()
+                        .log(
+                            "Could not release %s lock for %s because the permit no longer exists",
+                            label,
+                            keys.serverName
+                        )
+                }
+            }
     }
 }
