@@ -84,7 +84,7 @@ class PaperQueueTransferProcessor(
 
         while (transferred < maxTransfers && attempts < maxAttempts) {
             val uuid = store.top1() ?: break
-            if (!seen.add(uuid)) continue
+            if (!seen.add(uuid)) break // UUID already processed this tick -> we've cycled back, stop to avoid infinite loop
 
             attempts++
 

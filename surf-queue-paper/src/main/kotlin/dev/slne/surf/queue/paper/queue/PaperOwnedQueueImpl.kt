@@ -30,7 +30,7 @@ class PaperOwnedQueueImpl(serverName: String, scheduler: QueueScheduler) :
         super.tick()
         QueueMetrics.recordTick()
         SafeQueueTick.tickSafeWithTimeout(this, "cleanup", 10.seconds) { cleanup.tick(tickCount) }
-        SafeQueueTick.tickSafe(this, "transfers") { transferProcessor.tick() }
+        SafeQueueTick.tickSafeWithTimeout(this, "transfers", 45.seconds) { transferProcessor.tick() }
     }
 
     override suspend fun forceCleanup() {
