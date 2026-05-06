@@ -6,6 +6,7 @@ import dev.slne.surf.queue.paper.commands.sub.queueDequeue
 import dev.slne.surf.queue.paper.commands.sub.queueCleanup
 import dev.slne.surf.queue.paper.commands.sub.queueClear
 import dev.slne.surf.queue.paper.commands.sub.queueEnqueue
+import dev.slne.surf.queue.paper.commands.sub.queueFix
 import dev.slne.surf.queue.paper.commands.sub.queueInfo
 import dev.slne.surf.queue.paper.commands.sub.queueList
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
@@ -17,6 +18,7 @@ fun queueCommand() = commandAPICommand("squeue") {
     queueClear()
     queueDequeue()
     queueEnqueue()
+    queueFix()
     queueInfo()
     queueList()
     metricsCommand()

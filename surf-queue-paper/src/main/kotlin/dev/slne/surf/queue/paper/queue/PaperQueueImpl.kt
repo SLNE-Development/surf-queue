@@ -22,4 +22,15 @@ class PaperQueueImpl(serverName: String) : AbstractQueue(serverName), PaperQueue
     override suspend fun forceCleanup() {
         cleanup.cleanupExpiredEntries()
     }
+
+    override suspend fun fix(): QueueFixResult {
+        val sizeBefore = store.size()
+        val wasPaused = store.isPaused()
+        val lockReset = lockManager.resetLocks()
+        store.setPaused(false)
+        cleanup.cleanupExpiredEntries()
+        val sizeAfter = store.size()
+
+        return QueueFixResult(sizeBefore, sizeAfter, wasPaused, lockReset)
+    }
 }
