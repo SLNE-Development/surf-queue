@@ -153,6 +153,18 @@ class PaperQueueTransferProcessor(
                         break
                     }
 
+                    TransferAction.NOT_WHITELISTED -> {
+                        store.dequeue(uuid)
+                        QueueMetrics.recordFailedTransfer(serverName)
+                        QueueMetrics.recordDequeue(serverName)
+                        sendConnectionResultMessage(entry.uuid, message)
+                        log.atWarning()
+                            .log(
+                                "Player %s removed from queue %s due to not being whitelisted",
+                                uuid,
+                            )
+                    }
+
                     TransferAction.SERVER_FULL -> break
                     TransferAction.SERVER_NOT_FOUND -> break
                 }

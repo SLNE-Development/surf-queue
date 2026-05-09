@@ -14,23 +14,33 @@ object PlayerKickedDueToFullServerListener : Listener {
     private val kicks = Caffeine.newBuilder()
         .expireAfterWrite(2.minutes)
         .maximumSize(10000)
-        .build<UUID, Boolean>()
+        .build<UUID, KickReason>()
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPlayerServerFullCheck(event: PlayerServerFullCheckEvent) {
         if (!event.isAllowed) {
-            event.playerProfile.id?.let { kicks.put(it, true) }
+            event.playerProfile.id?.let { kicks.put(it, KickReason.FULL_SERVER) }
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun onAsyncPlayerPreLogin(event: AsyncPlayerPreLoginEvent) {
-        if (event.loginResult == AsyncPlayerPreLoginEvent.Result.KICK_FULL) {
-            event.uniqueId.let { kicks.put(it, true) }
+        val reason = when (event.loginResult) {
+            AsyncPlayerPreLoginEvent.Result.KICK_FULL -> KickReason.FULL_SERVER
+            AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST -> KickReason.NOT_WHITELISTED
+            else -> return
         }
+
+        kicks.put(event.uniqueId, reason)
     }
 
-    fun consumeWasKickedDueToFullServer(uuid: UUID): Boolean {
-        return kicks.asMap().remove(uuid) ?: false
+    fun consumeKickReason(uuid: UUID): KickReason {
+        return kicks.asMap().remove(uuid) ?: KickReason.OTHER
+    }
+
+    enum class KickReason {
+        FULL_SERVER,
+        NOT_WHITELISTED,
+        OTHER
     }
 }
