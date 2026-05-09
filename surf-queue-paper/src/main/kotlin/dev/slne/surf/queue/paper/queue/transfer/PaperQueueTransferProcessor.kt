@@ -162,6 +162,7 @@ class PaperQueueTransferProcessor(
                             .log(
                                 "Player %s removed from queue %s due to not being whitelisted",
                                 uuid,
+                                serverName
                             )
                     }
 
