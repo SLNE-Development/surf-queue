@@ -78,10 +78,10 @@ class PaperQueueTransfer(
             SurfServerConnectResult.Status.CONNECTION_CANCELLED -> TransferAction.PLUGIN_CANCELLED_TRANSFER
             SurfServerConnectResult.Status.CONNECTION_IN_PROGRESS -> TransferAction.PLAYER_ALREADY_CONNECTING
             SurfServerConnectResult.Status.SERVER_DISCONNECTED -> {
-                if (PlayerKickedDueToFullServerListener.consumeWasKickedDueToFullServer(player.uuid)) {
-                    TransferAction.SERVER_FULL
-                } else {
-                    TransferAction.PLAYER_KICKED_FROM_SERVER
+                when (PlayerKickedDueToFullServerListener.consumeKickReason(player.uuid)) {
+                    PlayerKickedDueToFullServerListener.KickReason.FULL_SERVER -> TransferAction.SERVER_FULL
+                    PlayerKickedDueToFullServerListener.KickReason.NOT_WHITELISTED -> TransferAction.NOT_WHITELISTED
+                    PlayerKickedDueToFullServerListener.KickReason.OTHER -> TransferAction.PLAYER_KICKED_FROM_SERVER
                 }
             }
 
