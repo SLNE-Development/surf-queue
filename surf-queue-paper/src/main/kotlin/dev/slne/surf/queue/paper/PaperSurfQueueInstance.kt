@@ -3,6 +3,7 @@ package dev.slne.surf.queue.paper
 import com.google.auto.service.AutoService
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.core.api.common.server.SurfServer
+import dev.slne.surf.queue.api.SurfQueueAvailableSlotsProvider
 import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
@@ -11,6 +12,7 @@ import dev.slne.surf.queue.paper.config.SurfQueueConfig
 import dev.slne.surf.queue.paper.hook.startup.QueueStartHook
 import dev.slne.surf.queue.paper.listener.PlayerKickedDueToFullServerListener
 import dev.slne.surf.queue.paper.metrics.QueueMetricsLogger
+import dev.slne.surf.queue.paper.queue.DefaultSurfQueueAvailableSlotsProvider
 import dev.slne.surf.queue.paper.queue.PaperOwnedQueueImpl
 import dev.slne.surf.queue.paper.queue.PaperQueueImpl
 
@@ -25,6 +27,7 @@ class PaperSurfQueueInstance : QueueInstance() {
 
     override suspend fun load() {
         SurfQueueConfig.init()
+        SurfQueueAvailableSlotsProvider.set(DefaultSurfQueueAvailableSlotsProvider)
         super.load()
         QueueStartHook.get().onServerReady {
             isLoaded = true
