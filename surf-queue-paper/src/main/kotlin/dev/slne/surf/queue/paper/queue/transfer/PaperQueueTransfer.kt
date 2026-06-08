@@ -7,6 +7,7 @@ import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
 import dev.slne.surf.queue.paper.config.SurfQueueConfig
 import dev.slne.surf.queue.paper.listener.PlayerKickedDueToFullServerListener
 import dev.slne.surf.api.core.util.logger
+import dev.slne.surf.queue.api.SurfQueueAvailableSlotsProvider
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import net.kyori.adventure.text.Component
@@ -26,10 +27,10 @@ class PaperQueueTransfer(
     }
 
     suspend fun tryTransfer(): Int {
-        val availableSlots = Bukkit.getMaxPlayers() - Bukkit.getOnlinePlayers().size
+        val coreServer = SurfServer[serverName] ?: return 0
+        val availableSlots = SurfQueueAvailableSlotsProvider.get().getAvailableSlots(coreServer)
 
         if (availableSlots <= 0) return 0
-        val coreServer = SurfServer[serverName] ?: return 0
         val maxTransfers = min(availableSlots, SurfQueueConfig.getConfig().maxTransfersPerSecond)
 
         return processor.processTransfers(maxTransfers) { (uuid) ->
