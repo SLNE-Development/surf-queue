@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    uses: SLNE-Development/surf-workflows/.github/workflows/build-publish-release-gradle.yml@master
+    uses: SLNE-Development/surf-workflows/.github/workflows/build-publish-release-gradle.yml@twisti-dev-patch-1
     with:
       modules: "surf-queue-paper-*-all.jar;surf-queue-velocity-*-all.jar"
     secrets: inherit
