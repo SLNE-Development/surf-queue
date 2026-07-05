@@ -3,7 +3,6 @@ package dev.slne.surf.queue.paper.queue.transfer
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.api.core.util.mutableObjectSetOf
 import dev.slne.surf.core.api.common.SurfCoreApi
-import dev.slne.surf.core.api.common.util.sendText
 import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueScore
@@ -259,7 +258,7 @@ class PaperQueueTransferProcessor(
         try {
             if (message != null) {
                 val player = SurfCoreApi.getPlayer(uuid) ?: return
-                player.sendText { append(message) }
+                SurfCoreApi.sendText(player, message)
             }
         } catch (e: Exception) {
             log.atWarning()
