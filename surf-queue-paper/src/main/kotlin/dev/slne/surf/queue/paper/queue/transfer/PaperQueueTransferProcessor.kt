@@ -104,9 +104,14 @@ class PaperQueueTransferProcessor(
                             .log("Transferred %s to %s", uuid, serverName)
                     }
 
-                    TransferAction.PLAYER_NOT_FOUND,
+                    TransferAction.PLAYER_NOT_FOUND -> {
+                        handlePlayerNotFound(uuid)
+                    }
+
                     TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER -> {
-                        handlePlayerNotFound(uuid, entry, action)
+                        QueueMetrics.recordSkip(serverName)
+                        markPlayerSeen(uuid)
+                        skipEntry(uuid)
                     }
 
                     TransferAction.PLAYER_ALREADY_ON_SERVER -> {
@@ -117,20 +122,21 @@ class PaperQueueTransferProcessor(
 
                     TransferAction.PLAYER_KICKED_FROM_SERVER -> {
                         QueueMetrics.recordFailedTransfer(serverName)
-                        retryEntry(uuid, entry, maxRetries = 5) {
+                        retryEntry(uuid, maxRetries = 5) {
                             sendConnectionResultMessage(entry.uuid, message)
                         }
                     }
 
                     TransferAction.PLAYER_ALREADY_CONNECTING -> {
                         QueueMetrics.recordSkip(serverName)
-                        skipEntry(uuid, entry)
+                        markPlayerSeen(uuid)
+                        skipEntry(uuid)
                     }
 
                     TransferAction.PLUGIN_CANCELLED_TRANSFER,
                     TransferAction.ERROR -> {
                         QueueMetrics.recordFailedTransfer(serverName)
-                        retryEntry(uuid, entry, maxRetries = 3) {
+                        retryEntry(uuid, maxRetries = 3) {
                             sendConnectionResultMessage(entry.uuid, message)
                         }
                     }
@@ -176,7 +182,7 @@ class PaperQueueTransferProcessor(
         return transferred
     }
 
-    private suspend fun retryEntry(uuid: UUID, meta: QueueEntry, maxRetries: Int, onMaxRetriesReached: () -> Unit) {
+    private suspend fun retryEntry(uuid: UUID, maxRetries: Int, onMaxRetriesReached: () -> Unit) {
         val retryCount = store.incrementRetryCount(uuid)
         if (retryCount >= maxRetries) {
             store.dequeue(uuid)
@@ -186,7 +192,7 @@ class PaperQueueTransferProcessor(
             log.atWarning()
                 .log("Player %s removed from queue %s after %d failed transfer attempts", uuid, serverName, retryCount)
         } else {
-            skipEntry(uuid, meta)
+            skipEntry(uuid)
             log.atInfo()
                 .log(
                     "Retrying transfer for player %s in queue %s (attempt %d/%d)",
@@ -198,18 +204,18 @@ class PaperQueueTransferProcessor(
         }
     }
 
-    private suspend fun handlePlayerNotFound(uuid: UUID, entry: QueueEntry, action: TransferAction) {
+    private suspend fun handlePlayerNotFound(uuid: UUID) {
         val now = Instant.now().toEpochMilli()
         val lastSeen = store.getLastSeen(uuid)
 
         if (lastSeen == null) {
             store.putLastSeen(uuid, now)
-            skipEntry(uuid, entry)
+            skipEntry(uuid)
             return
         }
 
         if (now - lastSeen < gracePeriodMs) {
-            skipEntry(uuid, entry)
+            skipEntry(uuid)
             return
         }
 
@@ -217,39 +223,41 @@ class PaperQueueTransferProcessor(
         QueueMetrics.recordGraceExpiry()
         QueueMetrics.recordDequeue(serverName)
         log.atInfo()
-            .log("Player %s removed from queue %s (offline > %dms) (%s)", uuid, serverName, gracePeriodMs, action)
+            .log("Player %s removed from queue %s (offline > %dms)", uuid, serverName, gracePeriodMs)
+    }
+
+    private suspend fun markPlayerSeen(uuid: UUID) {
+        store.clearLastSeen(uuid)
     }
 
     /**
      * Moves a queue entry behind the next entry in the sorted set so that
      * the transfer loop can proceed to other players.
      *
+     * The new score is derived from the *next* entry's packed score rather than from this
+     * entry's own priority: priority occupies the high bits, so re-packing inside the
+     * original priority band cannot move an entry past a lower-priority successor — the
+     * entry would keep winning [RedisQueueStore.top1] and stall the loop forever.
+     *
      * If the entry is the last one in the queue (no next entry exists),
      * we simply leave it in place and return instead of aborting the
      * entire transfer loop.
      */
-    private suspend fun skipEntry(uuid: UUID, meta: QueueEntry) {
-        val currentScore = store.getScore(uuid) ?: throw AbortException()
+    private suspend fun skipEntry(uuid: UUID) {
+        if (store.getScore(uuid) == null) throw AbortException() // entry vanished mid-tick
+
         val nextEntries = store.entriesAfter(uuid, limit = 1)
         if (nextEntries.isEmpty()) {
             // This entry is the last in the queue — nothing to skip past.
             return
         }
 
-        val nextScoreRaw = nextEntries.first().score
-        val nextScore = RedisQueueScore(nextScoreRaw)
-
-        val sequenceOverflow = nextScore.sequence >= RedisQueueScore.MAX_SEQUENCE
-        val nextSequence = if (sequenceOverflow) 0 else nextScore.sequence + 1
-        // On overflow, also bump deltaMs so the new score is strictly greater
-        // than the entry we are skipping past.
-        val nextDeltaMs = if (sequenceOverflow) nextScore.deltaMs + 1 else nextScore.deltaMs
-
-        val newScore = RedisQueueScore.pack(
-            meta.priority,
-            nextDeltaMs,
-            nextSequence
-        )
+        val newScore = RedisQueueScore(nextEntries.first().score).nextAfter()
+        if (newScore == null) {
+            log.atWarning()
+                .log("Cannot skip entry %s in queue %s: packed score space exhausted", uuid, serverName)
+            return
+        }
 
         store.addOrUpdateScore(uuid, newScore)
     }

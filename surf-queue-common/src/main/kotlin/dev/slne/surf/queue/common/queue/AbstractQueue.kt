@@ -7,6 +7,8 @@ import dev.slne.surf.queue.common.queue.entry.QueueEntry
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.ObjectList
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,10 +43,19 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
      */
     protected val lockManager = RedisQueueLockManager(keys)
 
+    @Volatile
+    private var epochMsValue: Long? = null
+    private val epochMsMutex = Mutex()
+
     /**
      * Millisecond epoch used to make timestamps relative, reducing score magnitude.
      */
-    protected val epochMs = store.initEpochMs()
+    protected suspend fun epochMs(): Long {
+        epochMsValue?.let { return it }
+        return epochMsMutex.withLock {
+            epochMsValue ?: store.initEpochMs().also { epochMsValue = it }
+        }
+    }
 
     /**
      * Monotonically increasing sequence counter used to break ties when
@@ -58,22 +69,24 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
         private val log = logger()
 
         /**
-         * Caps [priority] to [RedisQueueScore.MAX_PRIORITY] and logs a warning if it exceeds the limit.
+         * Clamps [priority] into `0..`[RedisQueueScore.MAX_PRIORITY] and logs a warning if it
+         * had to be adjusted. Both bounds must be enforced here: [RedisQueueScore.pack]
+         * rejects out-of-range values, which would fail the whole enqueue.
          */
         fun fixPriority(uuid: UUID, priority: Int): Int {
-            return if (priority <= RedisQueueScore.MAX_PRIORITY) {
-                priority
-            } else {
+            val clamped = priority.coerceIn(0, RedisQueueScore.MAX_PRIORITY)
+
+            if (clamped != priority) {
                 log.atWarning()
                     .log(
-                        "Priority %d for %s exceeds max representable priority, capping to %d",
+                        "Priority %d for %s is outside the representable range, clamping to %d",
                         priority,
                         uuid,
-                        RedisQueueScore.MAX_PRIORITY
+                        clamped
                     )
-
-                RedisQueueScore.MAX_PRIORITY
             }
+
+            return clamped
         }
     }
 
@@ -91,7 +104,7 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
 
         val score = RedisQueueScore.pack(
             priorityFixed,
-            now - epochMs,
+            now - epochMs(),
             sequence
         )
 

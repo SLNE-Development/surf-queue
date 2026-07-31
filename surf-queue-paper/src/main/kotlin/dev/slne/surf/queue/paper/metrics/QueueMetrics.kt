@@ -87,6 +87,14 @@ object QueueMetrics {
     fun getSkipsFor(serverName: String): Long =
         perQueueSkips[serverName]?.get() ?: 0
 
+    private fun trackedServerNames(): Set<String> = buildSet {
+        addAll(perQueueTransfers.keys)
+        addAll(perQueueEnqueues.keys)
+        addAll(perQueueDequeues.keys)
+        addAll(perQueueFailedTransfers.keys)
+        addAll(perQueueSkips.keys)
+    }
+
     fun snapshot(): QueueMetricsSnapshot = QueueMetricsSnapshot(
         totalTransfers = totalTransfers.get(),
         totalEnqueues = totalEnqueues.get(),
@@ -99,7 +107,7 @@ object QueueMetrics {
         totalCleanupCycles = totalCleanupCycles.get(),
         totalCleanupRemovals = totalCleanupRemovals.get(),
         totalTicks = totalTicks.get(),
-        perQueue = perQueueTransfers.keys.associateWith { serverName ->
+        perQueue = trackedServerNames().associateWith { serverName ->
             QueueMetricsSnapshot.PerQueueMetrics(
                 transfers = getTransfersFor(serverName),
                 enqueues = getEnqueuesFor(serverName),

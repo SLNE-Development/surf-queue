@@ -60,6 +60,8 @@ abstract class AbstractTickableQueue(
     @MustBeInvokedByOverriders
     protected open suspend fun tick() {
         tickCount++
+
+        epochMs()
     }
 
     protected suspend fun <T> onQueueThread(block: suspend CoroutineScope.() -> T): T =

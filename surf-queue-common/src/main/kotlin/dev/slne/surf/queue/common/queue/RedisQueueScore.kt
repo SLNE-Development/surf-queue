@@ -59,6 +59,12 @@ value class RedisQueueScore(val packed: Double) {
         const val MAX_SEQUENCE = SEQUENCE_MASK.toInt()
 
         /**
+         * Largest representable packed value, with every field at its maximum.
+         * Equals `2^53 - 1`, the biggest integer a Double still holds exactly.
+         */
+        const val MAX_PACKED = (1L shl (PRIORITY_BITS + DELTA_MS_BITS + SEQUENCE_BITS)) - 1
+
+        /**
          * Packs priority, timestamp and sequence into a single Double score.
          *
          * @param priority logical priority (0..MAX_PRIORITY), higher = more important
@@ -109,4 +115,17 @@ value class RedisQueueScore(val packed: Double) {
      */
     val sequence: Int
         get() = (packedLong and SEQUENCE_MASK).toInt()
+
+    /**
+     * The smallest score that sorts strictly after this one, or `null` if this score is
+     * already [MAX_PACKED] and cannot be incremented.
+     *
+     * Incrementing the packed value advances [sequence] first and carries into [deltaMs]
+     * and then the priority band, so the result always orders directly behind `this` —
+     * including when that means leaving the original priority band.
+     */
+    fun nextAfter(): RedisQueueScore? {
+        val next = packedLong + 1
+        return if (next > MAX_PACKED) null else RedisQueueScore(next.toDouble())
+    }
 }

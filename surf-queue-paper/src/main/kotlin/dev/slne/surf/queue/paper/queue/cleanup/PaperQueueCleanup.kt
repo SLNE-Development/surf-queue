@@ -55,10 +55,13 @@ class PaperQueueCleanup(
     }
 
     private suspend fun processExpiredEntry(uuid: UUID): Int = try {
-        queue.dequeue(uuid)
-        log.atInfo()
-            .log("Cleanup: removed expired entry %s from queue %s", uuid, queue.serverName)
-        1
+        if (queue.dequeue(uuid)) {
+            log.atInfo()
+                .log("Cleanup: removed expired entry %s from queue %s", uuid, queue.serverName)
+            1
+        } else {
+            0
+        }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         log.atWarning()

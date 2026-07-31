@@ -5,6 +5,8 @@ import dev.slne.surf.queue.common.redis.redisApi
 import dev.slne.surf.redis.libs.redisson.api.RPermitExpirableSemaphoreAsync
 import kotlinx.coroutines.*
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -21,16 +23,30 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         private val RELEASE_TIMEOUT = 5.seconds
     }
 
-    init {
-        transferSemaphore.trySetPermits(1)
-        cleanupSemaphore.trySetPermits(1)
+    private val permitsMutex = Mutex()
+
+    @Volatile
+    private var permitsInitialized = false
+
+    /**
+     * Sizes both semaphores to a single permit, once, before their first use.
+     */
+    private suspend fun ensurePermits() {
+        if (permitsInitialized) return
+
+        permitsMutex.withLock {
+            if (permitsInitialized) return
+            transferSemaphore.trySetPermitsAsync(1).await()
+            cleanupSemaphore.trySetPermitsAsync(1).await()
+            permitsInitialized = true
+        }
     }
 
     suspend fun resetLocks(): RedisQueueLockResetResult {
         val transferDeleted = transferSemaphore.deleteAsync().await()
         val cleanupDeleted = cleanupSemaphore.deleteAsync().await()
-        val transferInitialized = transferSemaphore.trySetPermits(1)
-        val cleanupInitialized = cleanupSemaphore.trySetPermits(1)
+        val transferInitialized = transferSemaphore.trySetPermitsAsync(1).await()
+        val cleanupInitialized = cleanupSemaphore.trySetPermitsAsync(1).await()
 
         return RedisQueueLockResetResult(
             transferDeleted = transferDeleted,
@@ -66,6 +82,8 @@ class RedisQueueLockManager(private val keys: RedisQueueKeys) {
         label: String,
         block: suspend (acquired: Boolean) -> T
     ): T {
+        ensurePermits()
+
         val permitId = semaphore.tryAcquireAsync(0, lease.inWholeMilliseconds, TimeUnit.MILLISECONDS).await()
             ?: return block(false)
 

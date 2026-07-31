@@ -53,6 +53,9 @@ abstract class QueueInstance { // Implementations are responsible for starting t
         RedisQueueService.get().close()
 
         SurfComponentApi.disable(componentOwner)
+
+        queueScheduler.close()
+
         RedisInstance.get().disconnect()
     }
 

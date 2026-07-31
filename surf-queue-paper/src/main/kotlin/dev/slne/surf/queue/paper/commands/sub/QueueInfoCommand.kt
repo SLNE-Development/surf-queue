@@ -38,6 +38,8 @@ fun CommandAPICommand.queueInfo() = subcommand("info") {
                 variableValue(profile.name ?: uuid.toString())
                 error(" is not in the queue.")
             }
+
+            return@anyExecutorSuspend
         }
 
         val position = queue.getPosition(uuid)

@@ -14,6 +14,8 @@ class VelocityQueueImpl(serverName: String, scheduler: QueueScheduler) : Abstrac
     }
 
     suspend fun markPlayerDisconnected(uuid: UUID) {
+        if (!store.isQueued(uuid)) return
+
         store.putLastSeen(uuid, Instant.now().toEpochMilli())
     }
 

@@ -12,7 +12,6 @@ import dev.slne.surf.redis.libs.redisson.client.codec.LongCodec
 import dev.slne.surf.redis.libs.redisson.client.protocol.ScoredEntry
 import dev.slne.surf.redis.libs.redisson.codec.CompositeCodec
 import kotlinx.coroutines.future.await
-import org.jetbrains.annotations.Blocking
 import java.time.Instant
 import java.util.*
 
@@ -56,10 +55,9 @@ class RedisQueueStore(keys: RedisQueueKeys) {
     private fun RBatch.getQueueRetryCountMap() = getMap<UUID, Int>(retryCountMap.name, retryCountMap.codec)
     // endregion
 
-    @Blocking
-    fun initEpochMs(): Long {
-        epochMsBucket.setIfAbsent(Instant.now().toEpochMilli())
-        return epochMsBucket.get()
+    suspend fun initEpochMs(): Long {
+        epochMsBucket.setIfAbsentAsync(Instant.now().toEpochMilli()).await()
+        return epochMsBucket.getAsync().await()
     }
 
     suspend fun enqueueIfAbsent(uuid: UUID, meta: QueueEntry, score: RedisQueueScore): Boolean {
@@ -145,6 +143,8 @@ class RedisQueueStore(keys: RedisQueueKeys) {
         scoredSet.deleteAsync().await()
         metaMap.deleteAsync().await()
         lastSeenMap.deleteAsync().await()
+        retryCountMap.deleteAsync().await()
+        pausedBucket.deleteAsync().await()
     }
 
     suspend fun isPaused() = pausedBucket.getAsync().await() == 1
