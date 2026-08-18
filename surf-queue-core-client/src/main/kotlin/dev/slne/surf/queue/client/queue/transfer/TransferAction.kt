@@ -1,0 +1,16 @@
+package dev.slne.surf.queue.client.queue.transfer
+
+enum class TransferAction {
+    DONE,
+    PLAYER_NOT_FOUND,
+    PLAYER_NOT_CONNECTED_TO_A_SERVER,
+    PLAYER_ALREADY_ON_SERVER,
+    PLUGIN_CANCELLED_TRANSFER,
+    PLAYER_KICKED_FROM_SERVER,
+    SERVER_FULL,
+    NOT_WHITELISTED,
+    PLAYER_ALREADY_CONNECTING,
+    SERVER_NOT_FOUND,
+    ERROR,
+    TIMEOUT
+}

@@ -18,6 +18,6 @@ surfPaperPluginApi {
 }
 
 dependencies {
-    api(project(":surf-queue-common"))
+    api(project(":surf-queue-core-client"))
     compileOnly(libs.polar)
 }

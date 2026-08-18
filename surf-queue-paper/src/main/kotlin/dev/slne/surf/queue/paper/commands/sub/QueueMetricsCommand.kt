@@ -3,10 +3,10 @@ package dev.slne.surf.queue.paper.commands.sub
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
-import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.command.executors.anyExecutorSuspend
-import dev.slne.surf.queue.paper.metrics.QueueMetrics
-import dev.slne.surf.queue.paper.metrics.QueueMetricsLogger
+import dev.slne.surf.queue.client.command.QueueMessages
+import dev.slne.surf.queue.client.metrics.QueueMetrics
+import dev.slne.surf.queue.client.metrics.QueueMetricsLogger
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
 
 fun CommandAPICommand.metricsCommand() = subcommand("metrics") {
@@ -16,20 +16,14 @@ fun CommandAPICommand.metricsCommand() = subcommand("metrics") {
         anyExecutor { source, arguments ->
             QueueMetricsLogger.stop()
             QueueMetricsLogger.start()
-            source.sendText {
-                appendSuccessPrefix()
-                success("Started logging metrics")
-            }
+            source.sendMessage(QueueMessages.startedLoggingMetrics())
         }
     }
 
     subcommand("stopLogging") {
         anyExecutor { source, arguments ->
             QueueMetricsLogger.stop()
-            source.sendText {
-                appendSuccessPrefix()
-                success("Stopped logging metrics")
-            }
+            source.sendMessage(QueueMessages.stoppedLoggingMetrics())
         }
     }
 
@@ -38,70 +32,7 @@ fun CommandAPICommand.metricsCommand() = subcommand("metrics") {
             val snapshot = QueueMetrics.snapshot()
             val queueSizes = QueueMetrics.collectQueueSizes()
 
-            sender.sendText {
-                appendSuccessPrefix()
-                success("=== Queue Metrics ===")
-            }
-            sender.sendText {
-                success("Transfers: ")
-                variableValue("${snapshot.totalTransfers}")
-                success(" successful, ")
-                variableValue("${snapshot.totalFailedTransfers}")
-                success(" failed (")
-                variableValue(String.format("%.1f%%", snapshot.transferSuccessRate * 100))
-                success(")")
-            }
-            sender.sendText {
-                success("Enqueues: ")
-                variableValue("${snapshot.totalEnqueues}")
-                success(" | Dequeues: ")
-                variableValue("${snapshot.totalDequeues}")
-            }
-            sender.sendText {
-                success("Grace Expiries: ")
-                variableValue("${snapshot.totalGraceExpiries}")
-                success(" | Retry Exhausted: ")
-                variableValue("${snapshot.totalRetryExhausted}")
-            }
-            sender.sendText {
-                success("Lock: ")
-                variableValue("${snapshot.totalLockAcquired}/${snapshot.totalLockAttempts}")
-                success(" (")
-                variableValue(String.format("%.1f%%", snapshot.lockAcquisitionRate * 100))
-                success(")")
-            }
-            sender.sendText {
-                success("Cleanup: ")
-                variableValue("${snapshot.totalCleanupCycles}")
-                success(" cycles, ")
-                variableValue("${snapshot.totalCleanupRemovals}")
-                success(" removals")
-            }
-            sender.sendText {
-                success("Ticks: ")
-                variableValue("${snapshot.totalTicks}")
-            }
-
-            if (queueSizes.isNotEmpty()) {
-                sender.sendText {
-                    appendSuccessPrefix()
-                    success("--- Per Queue ---")
-                }
-                for ((name, size) in queueSizes) {
-                    val perQueue = snapshot.perQueue[name]
-                    sender.sendText {
-                        variableValue(name)
-                        success(": size=")
-                        variableValue("$size")
-                        success(", transfers=")
-                        variableValue("${perQueue?.transfers ?: 0}")
-                        success(", failed=")
-                        variableValue("${perQueue?.failedTransfers ?: 0}")
-                        success(", skips=")
-                        variableValue("${perQueue?.skips ?: 0}")
-                    }
-                }
-            }
+            QueueMessages.metricsSnapshot(snapshot, queueSizes).forEach(sender::sendMessage)
         }
     }
 }

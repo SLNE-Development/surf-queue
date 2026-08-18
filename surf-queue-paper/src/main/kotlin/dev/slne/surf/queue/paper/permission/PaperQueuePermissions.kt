@@ -1,19 +1,17 @@
 package dev.slne.surf.queue.paper.permission
 
 import dev.slne.surf.api.paper.permission.PermissionRegistry
+import dev.slne.surf.queue.client.permission.QueuePermissions
 
 object PaperQueuePermissions : PermissionRegistry() {
-    private const val PREFIX = "surf.queue."
-    private const val COMMAND_PREFIX = PREFIX + "command"
-
-    val COMMAND_QUEUE = create("$COMMAND_PREFIX.queue")
-    val COMMAND_CLEANUP = create("$COMMAND_QUEUE.cleanup")
-    val COMMAND_CLEAR = create("$COMMAND_QUEUE.clear")
-    val COMMAND_DEQUEUE = create("$COMMAND_QUEUE.dequeue")
-    val COMMAND_ENQUEUE = create("$COMMAND_QUEUE.enqueue")
-    val COMMAND_FIX = create("$COMMAND_QUEUE.fix")
-    val COMMAND_INFO = create("$COMMAND_QUEUE.info")
-    val COMMAND_LIST = create("$COMMAND_QUEUE.list")
-    val COMMAND_PAUSE = create("$COMMAND_QUEUE.pause")
-    val COMMAND_METRICS = create("$COMMAND_PREFIX.metrics")
+    val COMMAND_QUEUE = create(QueuePermissions.COMMAND_QUEUE)
+    val COMMAND_CLEANUP = create(QueuePermissions.COMMAND_CLEANUP)
+    val COMMAND_CLEAR = create(QueuePermissions.COMMAND_CLEAR)
+    val COMMAND_DEQUEUE = create(QueuePermissions.COMMAND_DEQUEUE)
+    val COMMAND_ENQUEUE = create(QueuePermissions.COMMAND_ENQUEUE)
+    val COMMAND_FIX = create(QueuePermissions.COMMAND_FIX)
+    val COMMAND_INFO = create(QueuePermissions.COMMAND_INFO)
+    val COMMAND_LIST = create(QueuePermissions.COMMAND_LIST)
+    val COMMAND_PAUSE = create(QueuePermissions.COMMAND_PAUSE)
+    val COMMAND_METRICS = create(QueuePermissions.COMMAND_METRICS)
 }

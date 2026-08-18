@@ -2,6 +2,7 @@ package dev.slne.surf.queue.paper.metrics
 
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.api.paper.api.metrics.Metrics
+import dev.slne.surf.queue.client.metrics.QueueMetrics
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.plugin
 import kotlinx.coroutines.runBlocking

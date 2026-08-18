@@ -1,0 +1,93 @@
+package dev.slne.surf.queue.client.queue.transfer
+
+import dev.slne.surf.core.api.common.SurfCoreApi
+import dev.slne.surf.core.api.common.player.SurfPlayer
+import dev.slne.surf.core.api.common.server.SurfServer
+import dev.slne.surf.core.api.common.server.connection.SurfServerConnectResult
+import dev.slne.surf.api.core.util.logger
+import dev.slne.surf.queue.client.config.SurfQueueConfig
+import dev.slne.surf.queue.client.platform.QueuePlatform
+import dev.slne.surf.queue.client.platform.TransferKickReason
+import dev.slne.surf.queue.api.SurfQueueAvailableSlotsProvider
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import net.kyori.adventure.text.Component
+import java.util.*
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.math.min
+import kotlin.time.Duration.Companion.seconds
+
+class QueueTransfer(
+    private val processor: QueueTransferProcessor,
+    private val serverName: String
+) {
+
+    companion object {
+        private val log = logger()
+    }
+
+    suspend fun tryTransfer(): Int {
+        val coreServer = SurfServer[serverName] ?: return 0
+        val availableSlots = SurfQueueAvailableSlotsProvider.get().getAvailableSlots(coreServer)
+
+        if (availableSlots <= 0) return 0
+        val maxTransfers = min(availableSlots, SurfQueueConfig.getConfig().maxTransfersPerSecond)
+
+        return processor.processTransfers(maxTransfers) { (uuid) ->
+            transferEntry(uuid, coreServer)
+        }
+    }
+
+    private suspend fun transferEntry(uuid: UUID, targetServer: SurfServer): Pair<TransferAction, Component?> {
+        try {
+            val corePlayer = SurfCoreApi.getPlayer(uuid) ?: return TransferAction.PLAYER_NOT_FOUND to null
+            val currentPlayerServer = corePlayer.currentServer
+            val currentPlayerServerName = currentPlayerServer?.name
+                ?: return TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER to null // Probably transferring to another proxy
+
+            if (currentPlayerServerName == serverName) {
+                return TransferAction.PLAYER_ALREADY_ON_SERVER to null
+            }
+
+            return tryTransferPlayer(corePlayer, targetServer)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            log.atWarning()
+                .withCause(e)
+                .log("Error during transfer for queue %s", serverName)
+            return TransferAction.ERROR to null
+        }
+    }
+
+    private suspend fun tryTransferPlayer(
+        player: SurfPlayer,
+        targetServer: SurfServer
+    ): Pair<TransferAction, Component?> {
+        val (status, message) = try {
+            withTimeout(30.seconds) {
+                SurfCoreApi.sendPlayerAwaiting(player, targetServer)
+            }
+        } catch (e: TimeoutCancellationException) {
+            log.atWarning()
+                .log("Timed out waiting for player %s to connect to server %s", player.uuid, targetServer.name)
+            return TransferAction.TIMEOUT to null
+        }
+
+        return when (status) {
+            SurfServerConnectResult.Status.SERVER_NOT_FOUND -> TransferAction.SERVER_NOT_FOUND
+            SurfServerConnectResult.Status.ALREADY_CONNECTED -> TransferAction.PLAYER_ALREADY_ON_SERVER
+            SurfServerConnectResult.Status.CONNECTION_CANCELLED -> TransferAction.PLUGIN_CANCELLED_TRANSFER
+            SurfServerConnectResult.Status.CONNECTION_IN_PROGRESS -> TransferAction.PLAYER_ALREADY_CONNECTING
+            SurfServerConnectResult.Status.SERVER_DISCONNECTED -> {
+                when (QueuePlatform.get().consumeKickReason(player.uuid)) {
+                    TransferKickReason.FULL_SERVER -> TransferAction.SERVER_FULL
+                    TransferKickReason.NOT_WHITELISTED -> TransferAction.NOT_WHITELISTED
+                    TransferKickReason.OTHER -> TransferAction.PLAYER_KICKED_FROM_SERVER
+                }
+            }
+
+            SurfServerConnectResult.Status.SUCCESS -> TransferAction.DONE
+            SurfServerConnectResult.Status.UNKNOWN_ERROR -> TransferAction.ERROR
+        } to message
+    }
+}

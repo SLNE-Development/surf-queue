@@ -13,15 +13,18 @@ import org.jetbrains.annotations.MustBeInvokedByOverriders
  *
  * Responsible for connecting to Redis, loading queue state, managing
  * [SurfComponentApi] lifecycle, and tearing down the [QueueTicker].
- * Platform-specific subclasses (Paper, Velocity) provide the [componentOwner]
- * and implement [createQueue] to return the appropriate [AbstractQueue] variant.
+ * Platform-specific subclasses provide the [componentOwner] and implement
+ * [createQueue] to return the appropriate [AbstractQueue] variant.
  *
  * Implementations are responsible for starting the [QueueTicker] at the
  * appropriate time during their platform's lifecycle.
  */
 abstract class QueueInstance { // Implementations are responsible for starting the queue ticker task
-    /** The platform-specific owner object used with [SurfComponentApi]. */
-    protected abstract val componentOwner: Any
+    /**
+     * The platform-specific owner object used with [SurfComponentApi], or `null` on platforms
+     * without component support, which skips the component lifecycle entirely.
+     */
+    protected open val componentOwner: Any? = null
     abstract val queueScheduler: QueueScheduler
     abstract val isLoaded: Boolean
 
@@ -33,7 +36,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     open suspend fun load() {
         RedisInstance.get().connect()
         RedisQueueService.get().startRefreshing()
-        SurfComponentApi.load(componentOwner)
+        componentOwner?.let { SurfComponentApi.load(it) }
     }
 
     /**
@@ -41,7 +44,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
      */
     @MustBeInvokedByOverriders
     open suspend fun enable() {
-        SurfComponentApi.enable(componentOwner)
+        componentOwner?.let { SurfComponentApi.enable(it) }
     }
 
     /**
@@ -52,7 +55,7 @@ abstract class QueueInstance { // Implementations are responsible for starting t
     open suspend fun disable() {
         RedisQueueService.get().close()
 
-        SurfComponentApi.disable(componentOwner)
+        componentOwner?.let { SurfComponentApi.disable(it) }
 
         queueScheduler.close()
 

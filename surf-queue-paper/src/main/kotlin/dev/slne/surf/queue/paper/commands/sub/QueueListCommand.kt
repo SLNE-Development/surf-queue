@@ -3,27 +3,12 @@ package dev.slne.surf.queue.paper.commands.sub
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.subcommand
-import dev.slne.surf.api.core.messages.adventure.buildText
-import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.pagination.Pagination
 import dev.slne.surf.api.paper.command.executors.anyExecutorSuspend
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.core.api.paper.command.argument.surfBackendServerArgument
+import dev.slne.surf.queue.client.command.QueueMessages
 import dev.slne.surf.queue.common.queue.RedisQueueService
 import dev.slne.surf.queue.paper.permission.PaperQueuePermissions
-import java.util.*
-
-private val pagination = Pagination<UUID> {
-    title { primary("Queue list") }
-    rowRenderer { uuid, i ->
-        listOf(buildText {
-            val position = i + 1
-            variableKey(position)
-            info("—")
-            variableValue(uuid.toString())
-        })
-    }
-}
 
 fun CommandAPICommand.queueList() = subcommand("list") {
     withPermission(PaperQueuePermissions.COMMAND_LIST)
@@ -36,13 +21,10 @@ fun CommandAPICommand.queueList() = subcommand("list") {
         val entries = queue.getAllUuidsOrderedByPosition()
 
         if (entries.isEmpty()) {
-            sender.sendText {
-                appendInfoPrefix()
-                info("The queue is empty.")
-            }
+            sender.sendMessage(QueueMessages.queueEmpty())
             return@anyExecutorSuspend
         }
 
-        sender.sendMessage(pagination.renderComponent(entries))
+        sender.sendMessage(QueueMessages.queueListPagination.renderComponent(entries))
     }
 }

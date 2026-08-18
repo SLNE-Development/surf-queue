@@ -14,6 +14,8 @@ plugins {
 
 rootProject.name = "surf-queue"
 include("surf-queue-common")
+include("surf-queue-core-client")
 include("surf-queue-velocity")
 include("surf-queue-paper")
+include("surf-queue-minestom")
 include("surf-queue-api")
