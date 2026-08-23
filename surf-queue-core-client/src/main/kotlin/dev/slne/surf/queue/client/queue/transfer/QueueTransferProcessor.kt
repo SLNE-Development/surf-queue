@@ -3,17 +3,16 @@ package dev.slne.surf.queue.client.queue.transfer
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.api.core.util.mutableObjectSetOf
 import dev.slne.surf.core.api.common.SurfCoreApi
+import dev.slne.surf.queue.client.metrics.QueueMetrics
 import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueScore
 import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.common.queue.entry.QueueEntry
-import dev.slne.surf.queue.client.metrics.QueueMetrics
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
 import net.kyori.adventure.text.Component
 import java.time.Duration
-import java.time.Instant
 import java.util.*
 
 class QueueTransferProcessor(
@@ -35,13 +34,13 @@ class QueueTransferProcessor(
 
     suspend fun tick() {
         if (!QueueInstance.get().isLoaded) return
+
+        // Exponential backoff: decrease CPU usage and Redis commands when the
+        // queue is empty or the target server is full.
+        if (System.currentTimeMillis() < nextTransferTime) return
         if (store.isPaused()) return
 
         try {
-            // Exponential backoff: decrease CPU usage and Redis commands when the
-            // queue is empty or the target server is full.
-            if (System.currentTimeMillis() < nextTransferTime) return
-
             val transferred = transfer.tryTransfer()
             if (transferred <= 0) {
                 val delayDuration = delay.calcDelay(attempts)
@@ -205,7 +204,7 @@ class QueueTransferProcessor(
     }
 
     private suspend fun handlePlayerNotFound(uuid: UUID) {
-        val now = Instant.now().toEpochMilli()
+        val now = System.currentTimeMillis()
         val lastSeen = store.getLastSeen(uuid)
 
         if (lastSeen == null) {
@@ -244,9 +243,10 @@ class QueueTransferProcessor(
      * entire transfer loop.
      */
     private suspend fun skipEntry(uuid: UUID) {
-        if (store.getScore(uuid) == null) throw AbortException() // entry vanished mid-tick
+        // entry vanished mid-tick
+        val currentScore = store.getScore(uuid) ?: throw AbortException()
 
-        val nextEntries = store.entriesAfter(uuid, limit = 1)
+        val nextEntries = store.entriesAfter(currentScore, limit = 1)
         if (nextEntries.isEmpty()) {
             // This entry is the last in the queue — nothing to skip past.
             return
@@ -275,5 +275,5 @@ class QueueTransferProcessor(
         }
     }
 
-    private class AbortException : Exception()
+    private class AbortException : Exception(null, null, false, false)
 }

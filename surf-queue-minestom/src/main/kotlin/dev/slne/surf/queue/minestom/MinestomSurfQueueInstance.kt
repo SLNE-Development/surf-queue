@@ -9,6 +9,7 @@ import java.nio.file.Path
 class MinestomSurfQueueInstance : ClientQueueInstance() {
     override val dataPath: Path get() = MinestomQueueEntrypoint.dataPath
 
+    @Volatile
     override var isLoaded: Boolean = false
         private set
 

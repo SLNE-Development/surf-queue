@@ -8,10 +8,9 @@ abstract class QueueStartHook : AbstractComponent() {
     private val serverReadyTasks = ConcurrentLinkedQueue<() -> Unit>()
 
     protected fun runServerReadyTasks() {
-        val iterator = serverReadyTasks.iterator()
-        while (iterator.hasNext()) {
-            iterator.next().invoke()
-            iterator.remove()
+        while (true) {
+            val task = serverReadyTasks.poll() ?: break
+            task()
         }
     }
 

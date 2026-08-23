@@ -12,7 +12,6 @@ import dev.slne.surf.redis.libs.redisson.client.codec.LongCodec
 import dev.slne.surf.redis.libs.redisson.client.protocol.ScoredEntry
 import dev.slne.surf.redis.libs.redisson.codec.CompositeCodec
 import kotlinx.coroutines.future.await
-import java.time.Instant
 import java.util.*
 
 class RedisQueueStore(keys: RedisQueueKeys) {
@@ -56,7 +55,7 @@ class RedisQueueStore(keys: RedisQueueKeys) {
     // endregion
 
     suspend fun initEpochMs(): Long {
-        epochMsBucket.setIfAbsentAsync(Instant.now().toEpochMilli()).await()
+        epochMsBucket.setIfAbsentAsync(System.currentTimeMillis()).await()
         return epochMsBucket.getAsync().await()
     }
 
@@ -78,13 +77,19 @@ class RedisQueueStore(keys: RedisQueueKeys) {
     suspend fun getScore(uuid: UUID): RedisQueueScore? = RedisQueueScore.optional(scoredSet.getScoreAsync(uuid).await())
     suspend fun size(): Int = scoredSet.sizeAsync().await()
 
-    suspend fun top1(): UUID? = scoredSet.entryRangeAsync(0, 0).await().firstOrNull()?.value
+    suspend fun top1(): UUID? = scoredSet.firstAsync().await()
     suspend fun top2(): Collection<ScoredEntry<UUID>> = scoredSet.entryRangeAsync(0, 1).await()
-    suspend fun readAllEntries(): Collection<ScoredEntry<UUID>> = scoredSet.entryRangeAsync(0, -1).await()
-    suspend fun entriesAfter(uuid: UUID, limit: Int): Collection<ScoredEntry<UUID>> {
-        val currentScore = getScore(uuid) ?: return emptyList()
-        return scoredSet.entryRangeAsync(currentScore.packed, false, Double.MAX_VALUE, true, 0, limit).await()
-    }
+
+    /**
+     * All queued UUIDs in position order.
+     */
+    suspend fun readAllValues(): Collection<UUID> = scoredSet.valueRangeAsync(0, -1).await()
+
+    /**
+     * The entries ordered directly after [score].
+     */
+    suspend fun entriesAfter(score: RedisQueueScore, limit: Int): Collection<ScoredEntry<UUID>> =
+        scoredSet.entryRangeAsync(score.packed, false, Double.MAX_VALUE, true, 0, limit).await()
 
     suspend fun incrementRetryCount(uuid: UUID): Int {
         return retryCountMap.addAndGetAsync(uuid, 1).await()
@@ -93,7 +98,7 @@ class RedisQueueStore(keys: RedisQueueKeys) {
     suspend fun getRetryCount(uuid: UUID): Int? = retryCountMap.getAsync(uuid).await()
 
     suspend fun clearRetryCount(uuid: UUID) {
-        retryCountMap.removeAsync(uuid).await()
+        retryCountMap.fastRemoveAsync(uuid).await()
     }
 
     suspend fun getMeta(uuid: UUID): QueueEntry? = metaMap.getAsync(uuid).await()
@@ -103,13 +108,13 @@ class RedisQueueStore(keys: RedisQueueKeys) {
     }
 
     suspend fun putLastSeen(uuid: UUID, nowMs: Long) {
-        lastSeenMap.putAsync(uuid, nowMs).await()
+        lastSeenMap.fastPutAsync(uuid, nowMs).await()
     }
 
     suspend fun getLastSeen(uuid: UUID): Long? = lastSeenMap.getAsync(uuid).await()
 
     suspend fun clearLastSeen(uuid: UUID) {
-        lastSeenMap.removeAsync(uuid).await()
+        lastSeenMap.fastRemoveAsync(uuid).await()
     }
 
     suspend fun readAllLastSeen(): Map<UUID, Long> = lastSeenMap.readAllMapAsync().await() ?: emptyMap()
@@ -122,18 +127,18 @@ class RedisQueueStore(keys: RedisQueueKeys) {
         try {
             val result = executeAtomicBatch {
                 getQueueScoredSet().removeAsync(uuid)
-                getQueueMetaMap().removeAsync(uuid)
-                getQueueLastSeenMap().removeAsync(uuid)
-                getQueueRetryCountMap().removeAsync(uuid)
+                getQueueMetaMap().fastRemoveAsync(uuid)
+                getQueueLastSeenMap().fastRemoveAsync(uuid)
+                getQueueRetryCountMap().fastRemoveAsync(uuid)
             }
 
             return result.responses.first() as Boolean
         } catch (e: Exception) {
             // If the batch fails, we need try to remove the individual elements manually
             runCatching { scoredSet.removeAsync(uuid).await() }
-            runCatching { metaMap.removeAsync(uuid).await() }
-            runCatching { lastSeenMap.removeAsync(uuid).await() }
-            runCatching { retryCountMap.removeAsync(uuid).await() }
+            runCatching { metaMap.fastRemoveAsync(uuid).await() }
+            runCatching { lastSeenMap.fastRemoveAsync(uuid).await() }
+            runCatching { retryCountMap.fastRemoveAsync(uuid).await() }
 
             throw e
         }

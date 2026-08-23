@@ -19,6 +19,7 @@ interface SurfQueueAvailableSlotsProvider {
      * Holds global access to the currently configured [SurfQueueAvailableSlotsProvider].
      */
     companion object {
+        @Volatile
         private lateinit var instance: SurfQueueAvailableSlotsProvider
 
         /**

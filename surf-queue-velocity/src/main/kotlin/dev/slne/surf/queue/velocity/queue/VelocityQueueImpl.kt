@@ -3,7 +3,6 @@ package dev.slne.surf.queue.velocity.queue
 import dev.slne.surf.queue.common.queue.AbstractTickableQueue
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.common.queue.tick.SafeQueueTick
-import java.time.Instant
 import java.util.*
 
 class VelocityQueueImpl(serverName: String, scheduler: QueueScheduler) : AbstractTickableQueue(serverName, scheduler) {
@@ -16,7 +15,7 @@ class VelocityQueueImpl(serverName: String, scheduler: QueueScheduler) : Abstrac
     suspend fun markPlayerDisconnected(uuid: UUID) {
         if (!store.isQueued(uuid)) return
 
-        store.putLastSeen(uuid, Instant.now().toEpochMilli())
+        store.putLastSeen(uuid, System.currentTimeMillis())
     }
 
     override suspend fun tick() {

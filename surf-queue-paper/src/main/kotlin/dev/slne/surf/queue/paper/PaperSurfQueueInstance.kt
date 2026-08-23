@@ -13,6 +13,7 @@ class PaperSurfQueueInstance : ClientQueueInstance() {
     override val componentOwner get() = plugin
     override val dataPath get() = plugin.dataPath
 
+    @Volatile
     override var isLoaded: Boolean = false
         private set
 

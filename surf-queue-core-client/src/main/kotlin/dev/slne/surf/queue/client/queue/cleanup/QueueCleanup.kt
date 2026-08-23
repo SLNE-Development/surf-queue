@@ -6,7 +6,6 @@ import dev.slne.surf.queue.common.queue.RedisQueueLockManager
 import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.client.metrics.QueueMetrics
 import dev.slne.surf.queue.client.queue.OwnedClientQueueImpl
-import java.time.Instant
 import java.util.*
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -34,7 +33,7 @@ class QueueCleanup(
     }
 
     suspend fun cleanupExpiredEntries() {
-        val now = Instant.now().toEpochMilli()
+        val now = System.currentTimeMillis()
         val allLastSeen = store.readAllLastSeen()
         var removals = 0
 

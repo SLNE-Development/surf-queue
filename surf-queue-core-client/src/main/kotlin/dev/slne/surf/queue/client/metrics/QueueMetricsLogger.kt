@@ -9,9 +9,11 @@ import kotlin.time.Duration.Companion.minutes
 
 object QueueMetricsLogger {
     private val log = logger()
+    private val lock = Any()
     private var job: Job? = null
 
-    fun start() {
+    fun start(): Unit = synchronized(lock) {
+        job?.cancel()
         job = QueuePlatform.get().launchAsync {
             while (isActive) {
                 delay(5.minutes)
@@ -53,7 +55,7 @@ object QueueMetricsLogger {
         }
     }
 
-    fun stop() {
+    fun stop(): Unit = synchronized(lock) {
         job?.cancel()
         job = null
     }

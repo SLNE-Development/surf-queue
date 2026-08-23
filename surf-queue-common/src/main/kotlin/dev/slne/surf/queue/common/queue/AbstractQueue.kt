@@ -9,7 +9,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.ObjectList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -97,10 +96,8 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
 
     override suspend fun enqueue(uuid: UUID, priority: Int): Boolean {
         val priorityFixed = fixPriority(uuid, priority)
-        val now = Instant.now().toEpochMilli()
-        val sequence = enqueueSequence.getAndUpdate { current ->
-            if (current >= RedisQueueScore.MAX_SEQUENCE) 0 else current + 1
-        }
+        val now = System.currentTimeMillis()
+        val sequence = enqueueSequence.getAndIncrement() and RedisQueueScore.MAX_SEQUENCE
 
         val score = RedisQueueScore.pack(
             priorityFixed,
@@ -153,26 +150,18 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
         replaceWith = ReplaceWith("getAllUuidsOrderedByPosition()")
     )
     override suspend fun getAllUuidsWithPosition(): ObjectList<Object2IntMap.Entry<UUID>> {
-        val entries = store.readAllEntries()
-        val uuidsWithPosition = ObjectArrayList<Object2IntMap.Entry<UUID>>(entries.size)
+        val uuids = store.readAllValues()
+        val uuidsWithPosition = ObjectArrayList<Object2IntMap.Entry<UUID>>(uuids.size)
 
-        for ((index, entry) in entries.withIndex()) {
-            uuidsWithPosition.add(Object2IntMap.entry(entry.value, index + 1))
+        var position = 1
+        for (uuid in uuids) {
+            uuidsWithPosition.add(Object2IntMap.entry(uuid, position++))
         }
 
         return uuidsWithPosition
     }
 
-    override suspend fun getAllUuidsOrderedByPosition(): ObjectList<UUID> {
-        val entries = store.readAllEntries()
-        val uuids = ObjectArrayList<UUID>(entries.size)
-
-        for (entry in entries) {
-            uuids.add(entry.value)
-        }
-
-        return uuids
-    }
+    override suspend fun getAllUuidsOrderedByPosition(): ObjectList<UUID> = ObjectArrayList(store.readAllValues())
 
     override suspend fun size(): Int {
         return store.size()

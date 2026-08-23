@@ -1,17 +1,12 @@
 package dev.slne.surf.queue.velocity.queue
 
 import dev.slne.surf.queue.velocity.util.toVelocityPlayer
-import dev.slne.surf.api.core.messages.adventure.buildText
 import it.unimi.dsi.fastutil.objects.ObjectList
 import java.util.*
 
 class QueueDisplay(private val queue: VelocityQueueImpl) {
 
-    companion object {
-        private val spinner = arrayOf("∙∙∙", "●∙∙", "∙ ●∙", "∙∙ ●", "∙∙∙")
-        private val spinnerReversed = spinner.reversedArray()
-        private const val PAUSE_CHAR = '⏸'
-    }
+    private val renderer = QueueActionBarRenderer(queue.serverName)
 
     private var cachedUuidsWithPosition: ObjectList<UUID>? = null
 
@@ -25,35 +20,24 @@ class QueueDisplay(private val queue: VelocityQueueImpl) {
 
     private suspend fun updateActionBars() {
         val uuidsWithPosition = cachedUuidsWithPosition ?: return
-        val spinnerIndex = (queue.tickCount % spinner.size).toInt()
-        val spinnerEnd = spinner[spinnerIndex]
-        val spinnerStart = spinnerReversed[spinnerIndex]
-        val paused = queue.isPaused()
+        val total = uuidsWithPosition.size
+        if (total == 0) return
 
-        for ((index, uuid) in uuidsWithPosition.withIndex()) {
-            val player = uuid.toVelocityPlayer() ?: continue
+        if (queue.isPaused()) {
+            val message = renderer.paused
+            for (index in 0 until total) {
+                uuidsWithPosition[index].toVelocityPlayer()?.sendActionBar(message)
+            }
+            return
+        }
 
-            player.sendActionBar(buildText {
-                if (paused) {
-                    spacer(PAUSE_CHAR)
-                    appendSpace()
-                    variableValue(queue.serverName)
-                    appendSpace()
-                    spacer('|')
-                    appendSpace()
-                    variableValue("Pausiert")
-                } else {
-                    spacer(spinnerStart)
-                    appendSpace()
-                    variableValue(queue.serverName)
-                    appendSpace()
-                    spacer('|')
-                    appendSpace()
-                    variableValue("${index + 1}/${uuidsWithPosition.size}")
-                    appendSpace()
-                    spacer(spinnerEnd)
-                }
-            })
+        val frame = (queue.tickCount % QueueActionBarRenderer.FRAME_COUNT).toInt()
+        val totalSuffix = "/$total"
+
+        for (index in 0 until total) {
+            val player = uuidsWithPosition[index].toVelocityPlayer() ?: continue
+
+            player.sendActionBar(renderer.running(frame, "${index + 1}$totalSuffix"))
         }
     }
 }

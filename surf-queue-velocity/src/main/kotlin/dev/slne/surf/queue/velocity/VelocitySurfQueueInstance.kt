@@ -13,6 +13,8 @@ class VelocitySurfQueueInstance : QueueInstance() {
     override val componentOwner get() = plugin.container
     override val queueScheduler: QueueScheduler =
         QueueScheduler(workerCount = 2) // More queues, but the work is primarily only displaying the position in the action bar
+
+    @Volatile
     override var isLoaded: Boolean = false
         private set
 
