@@ -3,7 +3,7 @@ package dev.slne.surf.queue.velocity.listener
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.DisconnectEvent
 import com.velocitypowered.api.event.connection.PostLoginEvent
-import com.velocitypowered.api.event.player.ServerConnectedEvent
+import com.velocitypowered.api.event.player.ServerPostConnectEvent
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.queue.api.SurfQueue
@@ -40,8 +40,8 @@ object QueuePlayerListener {
     }
 
     @Subscribe
-    suspend fun onServerConnected(event: ServerConnectedEvent) {
-        if (event.previousServer.isPresent) {
+    suspend fun onServerPostConnect(event: ServerPostConnectEvent) {
+        if (event.previousServer != null) {
             return
         }
 
@@ -63,7 +63,7 @@ object QueuePlayerListener {
             return
         }
 
-        if (event.server.serverInfo.name == targetServer) {
+        if (event.player.currentServer.getOrNull()?.serverInfo?.name == targetServer) {
             QueueReconnectStore.remove(uuid)
             return
         }
@@ -102,6 +102,13 @@ object QueuePlayerListener {
         }
 
         try {
+            event.player.sendText {
+                appendInfoPrefix()
+                info("Du wirst automatisch wieder mit ")
+                variableValue(targetServer)
+                info(" verbunden. Du kannst diese Funktion jederzeit in der Lobby im Settings-Menü deaktivieren.")
+            }
+
             val enqueued = SurfQueue
                 .byServer(targetServer)
                 .enqueue(uuid)
@@ -109,13 +116,6 @@ object QueuePlayerListener {
             QueueReconnectStore.remove(uuid)
 
             if (enqueued) {
-                event.player.sendText {
-                    appendInfoPrefix()
-                    info("Du wirst automatisch wieder mit ")
-                    variableValue(targetServer)
-                    info(" verbunden. Du kannst diese Funktion jederzeit in der Lobby im Settings-Menü deaktivieren.")
-                }
-
                 log.atInfo()
                     .log(
                         "Automatically queued %s for %s after reconnect",
