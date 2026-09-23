@@ -5,6 +5,7 @@ import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.AbstractQueue
 import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.velocity.command.queueCommand
+import dev.slne.surf.queue.velocity.config.VelocityQueueConfig
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
 import dev.slne.surf.queue.velocity.queue.VelocityQueueImpl
 
@@ -17,6 +18,11 @@ class VelocitySurfQueueInstance : QueueInstance() {
     @Volatile
     override var isLoaded: Boolean = false
         private set
+
+    override suspend fun load() {
+        VelocityQueueConfig.init()
+        super.load()
+    }
 
     override suspend fun enable() {
         super.enable()

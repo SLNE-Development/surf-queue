@@ -6,13 +6,16 @@ import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.PluginContainer
+import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
 import dev.slne.surf.queue.common.QueueInstance
 import kotlinx.coroutines.runBlocking
+import java.nio.file.Path
 
 class VelocityMain @Inject constructor(
     val proxy: ProxyServer,
     val container: PluginContainer,
+    @param:DataDirectory val dataPath: Path,
     suspendingPluginContainer: SuspendingPluginContainer,
 ) {
     init {
