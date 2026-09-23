@@ -4,6 +4,7 @@ import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.DisconnectEvent
 import com.velocitypowered.api.event.connection.PostLoginEvent
 import com.velocitypowered.api.event.player.ServerConnectedEvent
+import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.queue.api.SurfQueue
 import dev.slne.surf.queue.common.queue.RedisQueueService
@@ -108,6 +109,13 @@ object QueuePlayerListener {
             QueueReconnectStore.remove(uuid)
 
             if (enqueued) {
+                event.player.sendText {
+                    appendInfoPrefix()
+                    info("Du wirst automatisch wieder mit ")
+                    variableValue(targetServer)
+                    info(" verbunden. Du kannst diese Funktion jederzeit in der Lobby im Settings-Menü deaktivieren.")
+                }
+
                 log.atInfo()
                     .log(
                         "Automatically queued %s for %s after reconnect",
