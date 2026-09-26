@@ -11,7 +11,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class OwnedClientQueueImpl(serverName: String, scheduler: QueueScheduler) :
     AbstractTickableQueue(serverName, scheduler), ClientQueue {
-    private val transferProcessor = QueueTransferProcessor(serverName, store, lockManager, GRACE_PERIOD_MS)
+    private val transferProcessor = QueueTransferProcessor(serverName, store, lockManager, GRACE_PERIOD_MS, tickScope)
     private val cleanup = QueueCleanup(this, store, lockManager)
 
     companion object {

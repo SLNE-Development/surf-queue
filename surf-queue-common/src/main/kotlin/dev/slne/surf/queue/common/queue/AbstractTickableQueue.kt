@@ -22,7 +22,7 @@ abstract class AbstractTickableQueue(
     }
 
     private val dispatcher = scheduler.dispatcherFor(serverName)
-    private val tickScope = scheduler.scopeFor(serverName)
+    protected val tickScope = scheduler.scopeFor(serverName)
 
     @Volatile
     private var tickJob: Job? = null

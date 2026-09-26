@@ -81,6 +81,11 @@ class RedisQueueStore(keys: RedisQueueKeys) {
     suspend fun top2(): Collection<ScoredEntry<UUID>> = scoredSet.entryRangeAsync(0, 1).await()
 
     /**
+     * The first [count] queued UUIDs in position order.
+     */
+    suspend fun topValues(count: Int): Collection<UUID> = scoredSet.valueRangeAsync(0, count - 1).await()
+
+    /**
      * All queued UUIDs in position order.
      */
     suspend fun readAllValues(): Collection<UUID> = scoredSet.valueRangeAsync(0, -1).await()

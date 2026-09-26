@@ -3,6 +3,10 @@ package dev.slne.surf.queue.client.queue.transfer
 import dev.slne.surf.api.core.util.logger
 import dev.slne.surf.api.core.util.mutableObjectSetOf
 import dev.slne.surf.core.api.common.SurfCoreApi
+import dev.slne.surf.core.api.common.player.SurfPlayer
+import dev.slne.surf.core.api.common.server.SurfServer
+import dev.slne.surf.queue.api.SurfQueueAvailableSlotsProvider
+import dev.slne.surf.queue.client.config.SurfQueueConfig
 import dev.slne.surf.queue.client.metrics.QueueMetrics
 import dev.slne.surf.queue.common.QueueInstance
 import dev.slne.surf.queue.common.queue.RedisQueueLockManager
@@ -11,17 +15,24 @@ import dev.slne.surf.queue.common.queue.RedisQueueStore
 import dev.slne.surf.queue.common.queue.entry.QueueEntry
 import dev.slne.surf.redis.libs.redisson.config.DecorrelatedJitterDelay
 import dev.slne.surf.redis.libs.redisson.config.DelayStrategy
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import java.time.Duration
 import java.util.*
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.math.min
 
 class QueueTransferProcessor(
     private val serverName: String,
     private val store: RedisQueueStore,
     private val lockManager: RedisQueueLockManager,
-    private val gracePeriodMs: Long
+    private val gracePeriodMs: Long,
+    private val scope: CoroutineScope,
 ) {
-    private val transfer = QueueTransfer(this, serverName)
+    private val transfer = QueueTransfer(serverName)
+    private val inFlight = ObjectOpenHashSet<UUID>()
     private var delay = createDelay()
     private var attempts: Int = 0
     private var nextTransferTime = System.currentTimeMillis()
@@ -41,11 +52,9 @@ class QueueTransferProcessor(
         if (store.isPaused()) return
 
         try {
-            val transferred = transfer.tryTransfer()
-            if (transferred <= 0) {
-                val delayDuration = delay.calcDelay(attempts)
-                nextTransferTime = System.currentTimeMillis() + delayDuration.toMillis()
-                attempts++
+            val started = startTransfers()
+            if (started <= 0) {
+                backOff()
             } else {
                 attempts = 0
                 delay = createDelay()
@@ -59,32 +68,39 @@ class QueueTransferProcessor(
         }
     }
 
-    suspend fun processTransfers(
-        maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>
-    ): Int = lockManager.withTransferLock { acquired ->
-        QueueMetrics.recordLockAttempt(acquired)
-        if (acquired) {
-            doProcessTransfers(maxTransfers, tryTransfer)
-        } else {
-            0
+    private fun backOff() {
+        val delayDuration = delay.calcDelay(attempts)
+        nextTransferTime = System.currentTimeMillis() + delayDuration.toMillis()
+        attempts++
+    }
+
+    private suspend fun startTransfers(): Int {
+        val targetServer = SurfServer[serverName] ?: return 0
+        val availableSlots =
+            SurfQueueAvailableSlotsProvider.get().getAvailableSlots(targetServer) - inFlight.size
+
+        if (availableSlots <= 0) return 0
+        val maxTransfers = min(availableSlots, SurfQueueConfig.getConfig().maxTransfersPerSecond)
+
+        return lockManager.withTransferLock { acquired ->
+            QueueMetrics.recordLockAttempt(acquired)
+            if (acquired) {
+                doStartTransfers(maxTransfers, targetServer)
+            } else {
+                0
+            }
         }
     }
 
-    private suspend fun doProcessTransfers(
-        maxTransfers: Int,
-        tryTransfer: suspend (QueueEntry) -> Pair<TransferAction, Component?>
-    ): Int {
-        var transferred = 0
-        var attempts = 0
-        val maxAttempts = maxTransfers * 3
-        val seen = mutableObjectSetOf<UUID>()
+    private suspend fun doStartTransfers(maxTransfers: Int, targetServer: SurfServer): Int {
+        var started = 0
 
-        while (transferred < maxTransfers && attempts < maxAttempts) {
-            val uuid = store.top1() ?: break
-            if (!seen.add(uuid)) break // UUID already processed this tick -> we've cycled back, stop to avoid infinite loop
+        // In-flight entries remain at the head of the queue and are skipped
+        val candidates = store.topValues(maxTransfers * 3 + inFlight.size)
 
-            attempts++
+        for (uuid in candidates) {
+            if (started >= maxTransfers) break
+            if (uuid in inFlight) continue
 
             val entry = store.getMeta(uuid)
             if (entry == null) {
@@ -92,93 +108,95 @@ class QueueTransferProcessor(
                 continue
             }
 
-            try {
-                val (action, message) = tryTransfer(entry)
-                when (action) {
-                    TransferAction.DONE -> {
-                        store.dequeue(uuid)
-                        transferred++
-                        QueueMetrics.recordTransfer(serverName)
-                        log.atInfo()
-                            .log("Transferred %s to %s", uuid, serverName)
+            when (val preparation = transfer.prepare(uuid)) {
+                is QueueTransfer.Preparation.Ready -> {
+                    inFlight.add(uuid)
+                    scope.launch {
+                        runTransfer(entry, preparation.player, targetServer)
                     }
-
-                    TransferAction.PLAYER_NOT_FOUND -> {
-                        handlePlayerNotFound(uuid)
-                    }
-
-                    TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER -> {
-                        QueueMetrics.recordSkip(serverName)
-                        markPlayerSeen(uuid)
-                        skipEntry(uuid)
-                    }
-
-                    TransferAction.PLAYER_ALREADY_ON_SERVER -> {
-                        store.dequeue(uuid)
-                        QueueMetrics.recordDequeue(serverName)
-                        log.atInfo().log("Player %s is already on server %s", uuid, serverName)
-                    }
-
-                    TransferAction.PLAYER_KICKED_FROM_SERVER -> {
-                        QueueMetrics.recordFailedTransfer(serverName)
-                        retryEntry(uuid, maxRetries = 5) {
-                            sendConnectionResultMessage(entry.uuid, message)
-                        }
-                    }
-
-                    TransferAction.PLAYER_ALREADY_CONNECTING -> {
-                        QueueMetrics.recordSkip(serverName)
-                        markPlayerSeen(uuid)
-                        skipEntry(uuid)
-                    }
-
-                    TransferAction.PLUGIN_CANCELLED_TRANSFER,
-                    TransferAction.ERROR -> {
-                        QueueMetrics.recordFailedTransfer(serverName)
-                        retryEntry(uuid, maxRetries = 3) {
-                            sendConnectionResultMessage(entry.uuid, message)
-                        }
-                    }
-
-                    TransferAction.TIMEOUT -> {
-                        // Timeout means the target server is likely unreachable.
-                        // Dequeue immediately instead of retrying with another 30s timeout
-                        // to avoid blocking the entire queue for extended periods.
-                        store.dequeue(uuid)
-                        QueueMetrics.recordFailedTransfer(serverName)
-                        QueueMetrics.recordDequeue(serverName)
-                        sendConnectionResultMessage(entry.uuid, message)
-                        log.atWarning()
-                            .log(
-                                "Player %s removed from queue %s due to transfer timeout",
-                                uuid,
-                                serverName
-                            )
-                        break
-                    }
-
-                    TransferAction.NOT_WHITELISTED -> {
-                        store.dequeue(uuid)
-                        QueueMetrics.recordFailedTransfer(serverName)
-                        QueueMetrics.recordDequeue(serverName)
-                        sendConnectionResultMessage(entry.uuid, message)
-                        log.atWarning()
-                            .log(
-                                "Player %s removed from queue %s due to not being whitelisted",
-                                uuid,
-                                serverName
-                            )
-                    }
-
-                    TransferAction.SERVER_FULL -> break
-                    TransferAction.SERVER_NOT_FOUND -> break
+                    started++
                 }
-            } catch (_: AbortException) {
-                break
+
+                is QueueTransfer.Preparation.Rejected -> handleResult(entry, preparation.action, null)
             }
         }
 
-        return transferred
+        return started
+    }
+
+    private suspend fun runTransfer(entry: QueueEntry, player: SurfPlayer, targetServer: SurfServer) {
+        try {
+            val (action, message) = transfer.connect(player, targetServer)
+            handleResult(entry, action, message)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            log.atWarning()
+                .withCause(e)
+                .log("Failed to handle transfer result of %s for queue %s", entry.uuid, serverName)
+        } finally {
+            inFlight.remove(entry.uuid)
+        }
+    }
+
+    private suspend fun handleResult(entry: QueueEntry, action: TransferAction, message: Component?) {
+        val uuid = entry.uuid
+        when (action) {
+            TransferAction.DONE -> {
+                store.dequeue(uuid)
+                QueueMetrics.recordTransfer(serverName)
+                log.atInfo()
+                    .log("Transferred %s to %s", uuid, serverName)
+            }
+
+            TransferAction.PLAYER_NOT_FOUND -> {
+                handlePlayerNotFound(uuid)
+            }
+
+            TransferAction.PLAYER_NOT_CONNECTED_TO_A_SERVER,
+            TransferAction.PLAYER_ALREADY_CONNECTING -> {
+                QueueMetrics.recordSkip(serverName)
+                markPlayerSeen(uuid)
+                skipEntry(uuid)
+            }
+
+            TransferAction.PLAYER_ALREADY_ON_SERVER -> {
+                store.dequeue(uuid)
+                QueueMetrics.recordDequeue(serverName)
+                log.atInfo().log("Player %s is already on server %s", uuid, serverName)
+            }
+
+            TransferAction.PLAYER_KICKED_FROM_SERVER -> {
+                QueueMetrics.recordFailedTransfer(serverName)
+                retryEntry(uuid, maxRetries = 5) {
+                    sendConnectionResultMessage(uuid, message)
+                }
+            }
+
+            TransferAction.PLUGIN_CANCELLED_TRANSFER,
+            TransferAction.ERROR,
+            TransferAction.TIMEOUT -> {
+                QueueMetrics.recordFailedTransfer(serverName)
+                retryEntry(uuid, maxRetries = 3) {
+                    sendConnectionResultMessage(uuid, message)
+                }
+            }
+
+            TransferAction.NOT_WHITELISTED -> {
+                store.dequeue(uuid)
+                QueueMetrics.recordFailedTransfer(serverName)
+                QueueMetrics.recordDequeue(serverName)
+                sendConnectionResultMessage(uuid, message)
+                log.atWarning()
+                    .log(
+                        "Player %s removed from queue %s due to not being whitelisted",
+                        uuid,
+                        serverName
+                    )
+            }
+
+            TransferAction.SERVER_FULL,
+            TransferAction.SERVER_NOT_FOUND -> backOff()
+        }
     }
 
     private suspend fun retryEntry(uuid: UUID, maxRetries: Int, onMaxRetriesReached: () -> Unit) {
@@ -231,20 +249,16 @@ class QueueTransferProcessor(
 
     /**
      * Moves a queue entry behind the next entry in the sorted set so that
-     * the transfer loop can proceed to other players.
+     * players behind it are selected first on the next tick.
      *
      * The new score is derived from the *next* entry's packed score rather than from this
      * entry's own priority: priority occupies the high bits, so re-packing inside the
-     * original priority band cannot move an entry past a lower-priority successor — the
-     * entry would keep winning [RedisQueueStore.top1] and stall the loop forever.
+     * original priority band cannot move an entry past a lower-priority successor.
      *
-     * If the entry is the last one in the queue (no next entry exists),
-     * we simply leave it in place and return instead of aborting the
-     * entire transfer loop.
+     * Does nothing if the entry is no longer queued or is the last one in the queue.
      */
     private suspend fun skipEntry(uuid: UUID) {
-        // entry vanished mid-tick
-        val currentScore = store.getScore(uuid) ?: throw AbortException()
+        val currentScore = store.getScore(uuid) ?: return
 
         val nextEntries = store.entriesAfter(currentScore, limit = 1)
         if (nextEntries.isEmpty()) {
@@ -274,6 +288,4 @@ class QueueTransferProcessor(
                 .log("Failed to send connection result message for player %s", uuid)
         }
     }
-
-    private class AbortException : Exception(null, null, false, false)
 }
