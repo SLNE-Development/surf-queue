@@ -7,11 +7,13 @@ import dev.slne.surf.redis.codec.UUIDCodec
 import dev.slne.surf.redis.libs.redisson.api.BatchOptions
 import dev.slne.surf.redis.libs.redisson.api.BatchResult
 import dev.slne.surf.redis.libs.redisson.api.RBatch
+import dev.slne.surf.redis.libs.redisson.api.RScript
 import dev.slne.surf.redis.libs.redisson.client.codec.IntegerCodec
 import dev.slne.surf.redis.libs.redisson.client.codec.LongCodec
 import dev.slne.surf.redis.libs.redisson.client.protocol.ScoredEntry
 import dev.slne.surf.redis.libs.redisson.codec.CompositeCodec
 import kotlinx.coroutines.future.await
+import java.math.BigDecimal
 import java.util.*
 
 class RedisQueueStore(keys: RedisQueueKeys) {
@@ -32,8 +34,18 @@ class RedisQueueStore(keys: RedisQueueKeys) {
 
     private val epochMsBucket = redisApi.redisson.getBucket<Long>(keys.epochMsKey, LongCodec.INSTANCE)
     private val pausedBucket = redisApi.redisson.getBucket<Int>(keys.pausedKey, IntegerCodec.INSTANCE)
+    private val script = redisApi.redisson.getScript(UUIDCodec.INSTANCE)
 
     companion object {
+        private const val LOWER_SCORE_IF_QUEUED_SCRIPT = """
+            local current = redis.call('ZSCORE', KEYS[1], ARGV[2])
+            if not current or tonumber(ARGV[1]) >= tonumber(current) then
+                return 0
+            end
+            redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
+            return 1
+        """
+
         private fun atomicBatchOptions(): BatchOptions {
             return BatchOptions.defaults().executionMode(BatchOptions.ExecutionMode.IN_MEMORY_ATOMIC)
         }
@@ -126,6 +138,30 @@ class RedisQueueStore(keys: RedisQueueKeys) {
 
     suspend fun addOrUpdateScore(uuid: UUID, score: RedisQueueScore): Boolean {
         return scoredSet.addAsync(score.packed, uuid).await()
+    }
+
+    /**
+     * Atomically replaces the score of [uuid] with [score] if [uuid] is still queued and
+     * [score] orders strictly before its current score.
+     *
+     * @return `true` if the score was replaced
+     */
+    suspend fun lowerScoreIfQueued(uuid: UUID, score: RedisQueueScore): Boolean {
+        return script.evalAsync<Boolean>(
+            RScript.Mode.READ_WRITE,
+            LOWER_SCORE_IF_QUEUED_SCRIPT,
+            RScript.ReturnType.BOOLEAN,
+            listOf<Any>(scoredSet.name),
+            BigDecimal.valueOf(score.packed).toPlainString(),
+            uuid
+        ).await()
+    }
+
+    /**
+     * Replaces the metadata of [uuid] only if an entry already exists.
+     */
+    suspend fun replaceMeta(uuid: UUID, meta: QueueEntry) {
+        metaMap.replaceAsync(uuid, meta).await()
     }
 
     private suspend fun batchRemove(uuid: UUID): Boolean {

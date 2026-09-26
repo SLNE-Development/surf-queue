@@ -7,6 +7,7 @@ import dev.slne.surf.queue.common.queue.tick.QueueScheduler
 import dev.slne.surf.queue.velocity.command.queueCommand
 import dev.slne.surf.queue.velocity.config.VelocityQueueConfig
 import dev.slne.surf.queue.velocity.listener.QueuePlayerListener
+import dev.slne.surf.queue.velocity.listener.QueuePriorityListener
 import dev.slne.surf.queue.velocity.queue.VelocityQueueImpl
 
 @AutoService(QueueInstance::class)
@@ -28,8 +29,14 @@ class VelocitySurfQueueInstance : QueueInstance() {
         super.enable()
 
         plugin.proxy.eventManager.register(plugin, QueuePlayerListener)
+        QueuePriorityListener.register()
         queueCommand()
         isLoaded = true
+    }
+
+    override suspend fun disable() {
+        QueuePriorityListener.unregister()
+        super.disable()
     }
 
     override fun createQueue(serverName: String): AbstractQueue {

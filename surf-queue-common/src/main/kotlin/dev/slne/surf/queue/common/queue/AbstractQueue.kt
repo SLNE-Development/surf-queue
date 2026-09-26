@@ -117,6 +117,28 @@ abstract class AbstractQueue(override val serverName: String) : SurfQueue {
         return added
     }
 
+    suspend fun raisePriority(uuid: UUID, priority: Int): Boolean {
+        val priorityFixed = fixPriority(uuid, priority)
+        val meta = store.getMeta(uuid) ?: return false
+        if (priorityFixed <= meta.priority) return false
+
+        val currentScore = store.getScore(uuid) ?: return false
+        val newScore = RedisQueueScore.pack(priorityFixed, currentScore.deltaMs, currentScore.sequence)
+        if (!store.lowerScoreIfQueued(uuid, newScore)) return false
+
+        store.replaceMeta(uuid, meta.copy(priority = priorityFixed))
+        log.atInfo()
+            .log(
+                "Raised priority of %s in queue %s from %d to %d",
+                uuid,
+                serverName,
+                meta.priority,
+                priorityFixed
+            )
+
+        return true
+    }
+
     /**
      * Called after a player is successfully enqueued. Override for side effects such as
      * recording metrics. No-op by default.
