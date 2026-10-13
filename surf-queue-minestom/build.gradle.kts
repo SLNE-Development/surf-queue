@@ -9,10 +9,6 @@ surfMinestomApi {
     withSurfRedis()
 }
 
-repositories {
-    mavenLocal()
-}
-
 minestomPluginFile {
     main = "dev.slne.surf.queue.minestom.MinestomQueuePlugin"
     authors = providers.gradleProperty("authors").map { it.split(",") }
