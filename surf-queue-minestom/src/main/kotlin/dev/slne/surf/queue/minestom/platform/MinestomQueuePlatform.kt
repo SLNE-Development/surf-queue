@@ -1,8 +1,8 @@
 package dev.slne.surf.queue.minestom.platform
 
 import com.google.auto.service.AutoService
-import dev.slne.minestom.lobby.api.coroutine.minestomAsyncScope
-import dev.slne.minestom.lobby.api.extension.ConnectionManager
+import dev.slne.surf.api.minestom.coroutine.minestomAsyncScope
+import dev.slne.surf.api.minestom.extension.ConnectionManager
 import dev.slne.surf.core.api.common.server.SurfServer
 import dev.slne.surf.queue.client.platform.QueuePlatform
 import dev.slne.surf.queue.client.platform.TransferKickReason

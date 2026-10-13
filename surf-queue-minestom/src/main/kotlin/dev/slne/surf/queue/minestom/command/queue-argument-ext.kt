@@ -1,6 +1,6 @@
 package dev.slne.surf.queue.minestom.command
 
-import dev.slne.minestom.lobby.api.command.commandapi.CommandAPI
+import dev.slne.surf.api.minestom.command.CommandAPI
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.core.api.common.player.SurfPlayer
 import kotlinx.coroutines.Deferred

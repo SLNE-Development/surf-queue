@@ -1,9 +1,9 @@
 package dev.slne.surf.queue.minestom.command.sub
 
-import dev.slne.minestom.lobby.api.command.commandapi.CommandAPICommand
-import dev.slne.minestom.lobby.api.command.commandapi.dsl.anyExecutor
-import dev.slne.minestom.lobby.api.command.commandapi.dsl.anyExecutorSuspend
-import dev.slne.minestom.lobby.api.command.commandapi.dsl.subcommand
+import dev.slne.surf.api.minestom.command.CommandAPICommand
+import dev.slne.surf.api.minestom.command.dsl.anyExecutor
+import dev.slne.surf.api.minestom.command.dsl.anyExecutorSuspend
+import dev.slne.surf.api.minestom.command.dsl.subcommand
 import dev.slne.surf.queue.client.command.QueueMessages
 import dev.slne.surf.queue.client.metrics.QueueMetrics
 import dev.slne.surf.queue.client.metrics.QueueMetricsLogger

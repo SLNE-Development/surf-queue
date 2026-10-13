@@ -1,6 +1,6 @@
 package dev.slne.surf.queue.minestom.command
 
-import dev.slne.minestom.lobby.api.command.commandapi.dsl.commandAPICommand
+import dev.slne.surf.api.minestom.command.dsl.commandAPICommand
 import dev.slne.surf.queue.client.permission.QueuePermissions
 import dev.slne.surf.queue.minestom.command.sub.metricsCommand
 import dev.slne.surf.queue.minestom.command.sub.queueCleanup
