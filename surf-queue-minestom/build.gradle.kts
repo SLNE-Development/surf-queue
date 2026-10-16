@@ -9,6 +9,15 @@ surfMinestomApi {
     withSurfRedis()
 }
 
+minestomPluginFile {
+    main = "dev.slne.surf.queue.minestom.MinestomQueuePlugin"
+    authors = providers.gradleProperty("authors").map { it.split(",") }
+
+    pluginDependencies {
+        register("surf-redis-minestom")
+    }
+}
+
 dependencies {
     api(project(":surf-queue-core-client"))
 }
