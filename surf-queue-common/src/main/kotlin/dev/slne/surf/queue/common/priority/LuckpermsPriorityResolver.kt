@@ -1,8 +1,8 @@
 package dev.slne.surf.queue.common.priority
 
 import dev.slne.surf.api.core.luckperms.LuckPermsAccess
+import dev.slne.surf.api.core.luckperms.getMeta
 import net.luckperms.api.model.user.User
-import net.luckperms.api.node.NodeType
 import java.util.*
 
 /**
@@ -16,9 +16,9 @@ object LuckpermsPriorityResolver {
     /** The LuckPerms meta key used to store a player's queue priority. */
     const val KEY = "queue-priority"
 
-    suspend fun getPriority(uuid: UUID): Int = getPriority(LuckPermsAccess.loadUser(uuid))
+    suspend fun getPriority(uuid: UUID): Int = getPriority(LuckPermsAccess.getOrLoadUser(uuid))
 
-    fun getPriority(user: User): Int = user.resolveInheritedNodes(NodeType.META, user.queryOptions)
-        .find { it.metaKey == KEY }
-        ?.metaValue?.toIntOrNull() ?: 0
+    fun getPriority(user: User): Int {
+        return user.getMeta(KEY, 0) { it.toIntOrNull() }
+    }
 }
